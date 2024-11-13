@@ -107,6 +107,7 @@ h1 {
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding-right: 40px; /* Added inward padding to prevent logo cutoff */
 }
 
 canvas {
@@ -142,5 +143,6 @@ h2 {
 
     .chart-container {
         height: 400px;
+        padding-right: 30px; /* Adjust padding for smaller screens */
     }
 }

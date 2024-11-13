@@ -14,9 +14,13 @@ const appLogos = {
 const loadImage = (src) => {
     return new Promise((resolve, reject) => {
         const img = new Image();
+        img.crossOrigin = 'Anonymous'; // To prevent CORS issues
         img.src = src;
         img.onload = () => resolve(img);
-        img.onerror = reject;
+        img.onerror = () => {
+            console.error(`Failed to load image: ${src}`);
+            resolve(null); // Resolve with null to handle missing images gracefully
+        };
     });
 };
 
@@ -71,9 +75,13 @@ async function updateChart(data) {
     // Load images for the apps
     const images = {};
     try {
-        for (const app in appLogos) {
-            images[app] = await loadImage(appLogos[app]);
-        }
+        const loadPromises = Object.entries(appLogos).map(async ([app, src]) => {
+            const img = await loadImage(src);
+            if (img) {
+                images[app] = img;
+            }
+        });
+        await Promise.all(loadPromises);
     } catch (error) {
         console.error('Error loading images:', error);
     }
@@ -164,13 +172,28 @@ async function updateChart(data) {
                 const meta = chart.getDatasetMeta(datasetIndex);
                 const latestPoint = meta.data[meta.data.length - 1];
 
-                if (latestPoint && images[dataset.label]) {
-                    const img = images[dataset.label];
-                    const size = 24; // Size of the logo
-                    const xPos = latestPoint.x - size / 2;
-                    const yPos = latestPoint.y - size / 2;
+                if (latestPoint) {
+                    const appLabel = dataset.label;
+                    const latestY = dataset.data[dataset.data.length - 1].y;
 
-                    ctx.drawImage(img, xPos, yPos, size, size);
+                    // Only draw the logo if the latest ranking is valid
+                    if (latestY !== null && images[appLabel]) {
+                        const img = images[appLabel];
+                        const size = 24; // Size of the logo
+                        const xPos = latestPoint.x - size / 2;
+                        const yPos = latestPoint.y - size / 2;
+
+                        // Ensure the image is within chart boundaries
+                        const maxX = right - size;
+                        const minX = left;
+                        const maxY = bottom - size;
+                        const minY = top;
+
+                        const finalX = Math.min(Math.max(xPos, minX), maxX);
+                        const finalY = Math.min(Math.max(yPos, minY), maxY);
+
+                        ctx.drawImage(img, finalX, finalY, size, size);
+                    }
                 }
             });
         }
@@ -270,6 +293,11 @@ async function updateChart(data) {
                 },
                 point: {
                     pointStyle: 'circle'
+                }
+            },
+            layout: {
+                padding: {
+                    right: 40 // Added extra padding to accommodate logos
                 }
             }
         },
