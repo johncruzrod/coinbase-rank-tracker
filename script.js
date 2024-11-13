@@ -1,5 +1,5 @@
-// Replace with your Worker URL once deployed
-const WORKER_URL = 'https://YOUR_WORKER_URL.workers.dev';
+// Replace with your actual Worker URL
+const WORKER_URL = 'https://coinbase-rank-tracker.johncruzrod.workers.dev';
 
 let rankingChart;
 
