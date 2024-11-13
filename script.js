@@ -167,59 +167,55 @@ async function updateChart(data) {
         id: 'imagePlugin',
         afterDatasetsDraw: (chart, args, options) => {
             const { ctx, data, chartArea: { top, bottom, left, right }, scales: { x, y } } = chart;
-            
-            // Sort datasets by Y position (ranking) to handle overlaps from top to bottom
-            const datasetPositions = data.datasets.map((dataset, datasetIndex) => {
-                const meta = chart.getDatasetMeta(datasetIndex);
-                const latestPoint = meta.data[meta.data.length - 1];
-                const latestY = dataset.data[dataset.data.length - 1].y;
-                
+
+            // Get the latest valid rankings for sorting
+            const latestRankings = data.datasets.map((dataset, index) => {
+                const lastDataPoint = dataset.data[dataset.data.length - 1];
                 return {
-                    dataset,
-                    y: latestPoint ? latestPoint.y : null,
-                    x: latestPoint ? latestPoint.x : null,
-                    value: latestY,
-                    appLabel: dataset.label
+                    index,
+                    y: lastDataPoint ? lastDataPoint.y : null,
+                    label: dataset.label
                 };
-            }).filter(pos => pos.y !== null && images[pos.appLabel]);
-    
-            // Sort by Y position
-            datasetPositions.sort((a, b) => a.y - b.y);
-    
-            const size = 24; // Size of the logo
-            const minSpacing = size + 4; // Minimum spacing between logos
-            let lastY = null;
-            let xOffset = 0;
-    
-            datasetPositions.forEach((pos) => {
-                const img = images[pos.appLabel];
-                let xPos = pos.x;
-                let yPos = pos.y - size/2; // Center vertically on the line
-    
-                // If this logo would overlap with the previous one
-                if (lastY !== null && Math.abs(yPos - lastY) < minSpacing) {
-                    // Instead of moving down, move right
-                    xOffset += minSpacing;
-                } else {
-                    // Reset x offset if no overlap
-                    xOffset = 0;
+            }).filter(item => item.y !== null && item.y !== undefined);
+
+            // Sort by Y value (ranking)
+            latestRankings.sort((a, b) => a.y - b.y);
+
+            // Calculate spacing based on chart dimensions
+            const size = 24; // Logo size
+            const spacing = size + 8; // Minimum vertical spacing between logos
+            const maxY = bottom - size;
+            const minY = top;
+
+            latestRankings.forEach((ranking, i) => {
+                const dataset = data.datasets[ranking.index];
+                const meta = chart.getDatasetMeta(ranking.index);
+                const latestPoint = meta.data[meta.data.length - 1];
+
+                if (latestPoint && images[ranking.label]) {
+                    const img = images[ranking.label];
+                    let xPos = latestPoint.x;
+                    let yPos = latestPoint.y;
+
+                    // If y position would result in logo being cut off at top
+                    if (yPos - size/2 < minY) {
+                        yPos = minY + size/2;
+                    }
+                    // If y position would result in logo being cut off at bottom
+                    if (yPos + size/2 > maxY) {
+                        yPos = maxY - size/2;
+                    }
+
+                    // Calculate final positions
+                    const finalX = Math.min(xPos - size/2, right - size);
+                    const finalY = Math.min(Math.max(yPos - size/2, minY), maxY);
+
+                    // Draw the logo
+                    ctx.drawImage(img, finalX, finalY, size, size);
                 }
-    
-                // Apply the x offset and ensure within bounds
-                const finalX = Math.min(xPos + xOffset, right - size);
-                const finalY = Math.max(top, Math.min(yPos, bottom - size));
-    
-                // Draw the logo
-                ctx.drawImage(img, finalX, finalY, size, size);
-    
-                // Update last Y position
-                lastY = yPos;
             });
         }
     };
-
-    // Register the plugin
-    Chart.register(imagePlugin);
 
     // Create the chart
     rankingChart = new Chart(ctx, {
@@ -250,7 +246,7 @@ async function updateChart(data) {
                     callbacks: {
                         title: (tooltipItems) => {
                             const date = tooltipItems[0].parsed.x;
-                            return new Date(date).toLocaleString('en-GB'); // DD/MM/YY format
+                            return new Date(date).toLocaleString('en-GB');
                         },
                         label: (tooltipItem) => {
                             return `${tooltipItem.dataset.label}: ${tooltipItem.parsed.y || 'N/A'}`;
@@ -266,14 +262,21 @@ async function updateChart(data) {
             scales: {
                 y: {
                     reverse: true,
-                    suggestedMin: 1,
+                    suggestedMin: -2, // Add padding at top
                     suggestedMax: 100,
                     ticks: {
                         stepSize: 10,
-                        color: '#555'
+                        color: '#555',
+                        callback: function(value) {
+                            // Don't show negative values in axis
+                            return value <= 0 ? '' : value;
+                        }
                     },
                     grid: {
-                        color: '#eee'
+                        color: '#eee',
+                        drawOnChartArea: function(context) {
+                            return context.tick.value > 0;
+                        }
                     },
                     title: {
                         display: true,
@@ -289,9 +292,9 @@ async function updateChart(data) {
                     time: {
                         unit: 'day',
                         displayFormats: {
-                            day: 'dd/MM/yy' // DDMMYY format
+                            day: 'dd/MM/yy'
                         },
-                        tooltipFormat: 'dd/MM/yy' // Tooltip date format
+                        tooltipFormat: 'dd/MM/yy'
                     },
                     grid: {
                         color: '#eee'
@@ -321,7 +324,10 @@ async function updateChart(data) {
             },
             layout: {
                 padding: {
-                    right: 40 // Added extra padding to accommodate logos
+                    top: 20,
+                    right: 40,
+                    bottom: 10,
+                    left: 10
                 }
             }
         },
@@ -338,7 +344,7 @@ function initializeData() {
 // Function to handle tab switching
 function handleTabSwitch(event) {
     const selectedCategory = event.target.getAttribute('data-category');
-    if (selectedCategory === currentCategory) return; // Do nothing if same category
+    if (selectedCategory === currentCategory) return;
 
     currentCategory = selectedCategory;
 
