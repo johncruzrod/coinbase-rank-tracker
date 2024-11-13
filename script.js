@@ -3,27 +3,6 @@ const WORKER_URL = 'https://coinbase-rank-tracker.johncruzrod.workers.dev';
 let rankingChart;
 let currentCategory = 'finance'; // Default category
 
-// URLs for app logos
-const appLogos = {
-    Coinbase: 'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/fa/f4/2f/faf42f54-e7b5-0164-116b-4535c85ccf0d/AppIcon-0-0-1x_U007ephone-0-0-85-220.png/460x0w.webp',
-    'Crypto.com': 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/61/dd/ed/61ddedb0-491a-bb2f-a75d-4e847dc0c210/AppIcon-0-0-1x_U007emarketing-0-5-0-sRGB-85-220.png/434x0w.webp',
-    Binance: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a3/11/b9/a311b9cd-b4aa-b79c-e02b-818969110eea/AppIcon-0-0-1x_U007ephone-0-85-220.png/460x0w.webp'
-};
-
-// Function to load images
-const loadImage = (src) => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous'; // To prevent CORS issues
-        img.src = src;
-        img.onload = () => resolve(img);
-        img.onerror = () => {
-            console.error(`Failed to load image: ${src}`);
-            resolve(null); // Resolve with null to handle missing images gracefully
-        };
-    });
-};
-
 // Function to fetch the latest ranking based on category
 async function fetchLatestRanking(category) {
     console.log(`Fetching latest ranking for ${category}...`);
@@ -33,9 +12,9 @@ async function fetchLatestRanking(category) {
         console.log(`Latest ranking data for ${category}:`, data);
         
         // Update all rankings
-        document.getElementById('coinbaseRank').textContent = data.Coinbase !== undefined && data.Coinbase !== null ? data.Coinbase : 'N/A';
-        document.getElementById('cryptocomRank').textContent = data['Crypto.com'] !== undefined && data['Crypto.com'] !== null ? data['Crypto.com'] : 'N/A';
-        document.getElementById('binanceRank').textContent = data.Binance !== undefined && data.Binance !== null ? data.Binance : 'N/A';
+        document.getElementById('coinbaseRank').textContent = data.Coinbase !== undefined ? data.Coinbase : 'N/A';
+        document.getElementById('cryptocomRank').textContent = data['Crypto.com'] !== undefined ? data['Crypto.com'] : 'N/A';
+        document.getElementById('binanceRank').textContent = data.Binance !== undefined ? data.Binance : 'N/A';
         document.getElementById('lastUpdated').textContent = 
             `Last updated: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : '--'}`;
     } catch (error) {
@@ -68,181 +47,59 @@ async function fetchHistoricalData(category) {
 }
 
 // Function to update the Chart.js chart
-async function updateChart(data) {
+function updateChart(data) {
     console.log('Updating chart with data points:', data.length);
     const ctx = document.getElementById('rankingChart').getContext('2d');
-
-    // Load images for the apps
-    const images = {};
-    try {
-        const loadPromises = Object.entries(appLogos).map(async ([app, src]) => {
-            const img = await loadImage(src);
-            if (img) {
-                images[app] = img;
-            }
-        });
-        await Promise.all(loadPromises);
-    } catch (error) {
-        console.error('Error loading images:', error);
-    }
-
-    // Identify the latest data point
-    const latestData = data[data.length - 1];
-    const latestTimestamp = latestData.timestamp;
-
-    // Prepare datasets with gradient
-    const gradientColors = {
-        Coinbase: {
-            start: 'rgba(22, 82, 240, 0.5)',
-            end: 'rgba(22, 82, 240, 0)'
-        },
-        'Crypto.com': {
-            start: 'rgba(17, 153, 250, 0.5)',
-            end: 'rgba(17, 153, 250, 0)'
-        },
-        Binance: {
-            start: 'rgba(240, 185, 11, 0.5)',
-            end: 'rgba(240, 185, 11, 0)'
-        }
-    };
-
-    const datasets = [
-        {
-            label: 'Coinbase',
-            data: data.map(d => ({ x: new Date(d.timestamp), y: d.Coinbase || null })),
-            borderColor: '#1652f0',
-            backgroundColor: function(context) {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height);
-                gradient.addColorStop(0, gradientColors.Coinbase.start);
-                gradient.addColorStop(1, gradientColors.Coinbase.end);
-                return gradient;
-            },
-            fill: true,
-            tension: 0.4,
-            pointRadius: 0,
-            borderWidth: 2
-        },
-        {
-            label: 'Crypto.com',
-            data: data.map(d => ({ x: new Date(d.timestamp), y: d['Crypto.com'] || null })),
-            borderColor: '#1199fa',
-            backgroundColor: function(context) {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height);
-                gradient.addColorStop(0, gradientColors['Crypto.com'].start);
-                gradient.addColorStop(1, gradientColors['Crypto.com'].end);
-                return gradient;
-            },
-            fill: true,
-            tension: 0.4,
-            pointRadius: 0,
-            borderWidth: 2
-        },
-        {
-            label: 'Binance',
-            data: data.map(d => ({ x: new Date(d.timestamp), y: d.Binance || null })),
-            borderColor: '#f0b90b',
-            backgroundColor: function(context) {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height);
-                gradient.addColorStop(0, gradientColors.Binance.start);
-                gradient.addColorStop(1, gradientColors.Binance.end);
-                return gradient;
-            },
-            fill: true,
-            tension: 0.4,
-            pointRadius: 0,
-            borderWidth: 2
-        }
-    ];
-
-    // Destroy previous chart if exists
+    
     if (rankingChart) {
         rankingChart.destroy();
     }
 
-    // Define the custom plugin to draw images on latest data points
-    const imagePlugin = {
-        id: 'imagePlugin',
-        afterDatasetsDraw: (chart, args, options) => {
-            const { ctx, data, chartArea: { top, bottom, left, right }, scales: { x, y } } = chart;
-
-            data.datasets.forEach((dataset, datasetIndex) => {
-                const meta = chart.getDatasetMeta(datasetIndex);
-                const latestPoint = meta.data[meta.data.length - 1];
-
-                if (latestPoint) {
-                    const appLabel = dataset.label;
-                    const latestY = dataset.data[dataset.data.length - 1].y;
-
-                    // Only draw the logo if the latest ranking is valid
-                    if (latestY !== null && images[appLabel]) {
-                        const img = images[appLabel];
-                        const size = 24; // Size of the logo
-                        const xPos = latestPoint.x - size / 2;
-                        const yPos = latestPoint.y - size / 2;
-
-                        // Ensure the image is within chart boundaries
-                        const maxX = right - size;
-                        const minX = left;
-                        const maxY = bottom - size;
-                        const minY = top;
-
-                        const finalX = Math.min(Math.max(xPos, minX), maxX);
-                        const finalY = Math.min(Math.max(yPos, minY), maxY);
-
-                        ctx.drawImage(img, finalX, finalY, size, size);
-                    }
-                }
-            });
-        }
+    const chartData = {
+        labels: data.map(d => new Date(d.timestamp)),
+        datasets: [
+            {
+                label: 'Coinbase',
+                data: data.map(d => d.Coinbase || null),
+                borderColor: '#1652f0',
+                backgroundColor: 'rgba(22, 82, 240, 0.1)',
+                fill: false,
+                spanGaps: true
+            },
+            {
+                label: 'Crypto.com',
+                data: data.map(d => d['Crypto.com'] || null),
+                borderColor: '#1199fa',
+                backgroundColor: 'rgba(17, 153, 250, 0.1)',
+                fill: false,
+                spanGaps: true
+            },
+            {
+                label: 'Binance',
+                data: data.map(d => d.Binance || null),
+                borderColor: '#f0b90b',
+                backgroundColor: 'rgba(240, 185, 11, 0.1)',
+                fill: false,
+                spanGaps: true
+            }
+        ]
     };
-
-    // Register the plugin
-    Chart.register(imagePlugin);
-
-    // Create the chart
+    
     rankingChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            datasets: datasets
-        },
+        data: chartData,
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: {
                     display: true,
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 20
-                    }
+                    position: 'top'
                 },
                 tooltip: {
                     mode: 'index',
                     intersect: false,
-                    backgroundColor: '#333',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
-                    borderColor: '#fff',
-                    borderWidth: 1,
-                    callbacks: {
-                        title: (tooltipItems) => {
-                            const date = tooltipItems[0].parsed.x;
-                            return new Date(date).toLocaleString('en-GB'); // DD/MM/YY format
-                        },
-                        label: (tooltipItem) => {
-                            return `${tooltipItem.dataset.label}: ${tooltipItem.parsed.y || 'N/A'}`;
-                        }
-                    }
                 }
-            },
-            interaction: {
-                mode: 'nearest',
-                axis: 'x',
-                intersect: false
             },
             scales: {
                 y: {
@@ -250,63 +107,31 @@ async function updateChart(data) {
                     suggestedMin: 1,
                     suggestedMax: 100,
                     ticks: {
-                        stepSize: 10,
-                        color: '#555'
-                    },
-                    grid: {
-                        color: '#eee'
+                        stepSize: 10
                     },
                     title: {
                         display: true,
-                        text: 'Ranking',
-                        color: '#555',
-                        font: {
-                            size: 14
-                        }
+                        text: 'Ranking'
                     }
                 },
                 x: {
                     type: 'time',
                     time: {
-                        unit: 'day',
-                        displayFormats: {
-                            day: 'dd/MM/yy' // DDMMYY format
-                        },
-                        tooltipFormat: 'dd/MM/yy' // Tooltip date format
-                    },
-                    grid: {
-                        color: '#eee'
+                        unit: 'hour',
+                        tooltipFormat: 'PPpp'
                     },
                     title: {
                         display: true,
-                        text: 'Date',
-                        color: '#555',
-                        font: {
-                            size: 14
-                        }
-                    },
-                    ticks: {
-                        color: '#555',
-                        autoSkip: true,
-                        maxTicksLimit: 10
+                        text: 'Time'
                     }
                 }
             },
-            elements: {
-                line: {
-                    borderCapStyle: 'round'
-                },
-                point: {
-                    pointStyle: 'circle'
-                }
-            },
-            layout: {
-                padding: {
-                    right: 40 // Added extra padding to accommodate logos
-                }
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
             }
-        },
-        plugins: [imagePlugin]
+        }
     });
 }
 
