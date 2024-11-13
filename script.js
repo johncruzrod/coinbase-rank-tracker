@@ -231,7 +231,7 @@ async function updateChart(data) {
                     callbacks: {
                         title: (tooltipItems) => {
                             const date = tooltipItems[0].parsed.x;
-                            return new Date(date).toLocaleString();
+                            return new Date(date).toLocaleString('en-GB'); // DD/MM/YY format
                         },
                         label: (tooltipItem) => {
                             return `${tooltipItem.dataset.label}: ${tooltipItem.parsed.y || 'N/A'}`;
@@ -269,21 +269,26 @@ async function updateChart(data) {
                     type: 'time',
                     time: {
                         unit: 'day',
-                        tooltipFormat: 'PPpp'
+                        displayFormats: {
+                            day: 'dd/MM/yy' // DDMMYY format
+                        },
+                        tooltipFormat: 'dd/MM/yy' // Tooltip date format
                     },
                     grid: {
                         color: '#eee'
                     },
                     title: {
                         display: true,
-                        text: 'Time',
+                        text: 'Date',
                         color: '#555',
                         font: {
                             size: 14
                         }
                     },
                     ticks: {
-                        color: '#555'
+                        color: '#555',
+                        autoSkip: true,
+                        maxTicksLimit: 10
                     }
                 }
             },
