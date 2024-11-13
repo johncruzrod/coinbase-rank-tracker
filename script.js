@@ -2,6 +2,7 @@ const WORKER_URL = 'https://coinbase-rank-tracker.johncruzrod.workers.dev';
 
 let rankingChart;
 let currentCategory = 'finance'; // Default category
+let historicalDataCache = {}; // Cache to store historical data per category
 
 // Function to fetch the latest ranking based on category
 async function fetchLatestRanking(category) {
@@ -40,7 +41,10 @@ async function fetchHistoricalData(category) {
             return;
         }
         
+        // Cache the historical data
+        historicalDataCache[category] = data;
         updateChart(data);
+        updateDailyChanges(category, data);
     } catch (error) {
         console.error(`Error fetching historical data for ${category}:`, error);
     }
@@ -155,6 +159,86 @@ function handleTabSwitch(event) {
 
     // Fetch and update data for the selected category
     initializeData();
+}
+
+// Function to update daily changes with arrows
+function updateDailyChanges(category, data) {
+    // Get today's date in UTC to ensure consistency
+    const today = new Date();
+    const year = today.getUTCFullYear();
+    const month = String(today.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(today.getUTCDate()).padStart(2, '0');
+    const todayPrefix = `${year}-${month}-${day}`;
+
+    // Filter data for today
+    const todaysData = data.filter(d => d.timestamp.startsWith(todayPrefix));
+
+    if (todaysData.length === 0) {
+        console.log('No data available for today to calculate changes.');
+        setNoChangeIndicators();
+        return;
+    }
+
+    // Get the first available entry of today
+    const firstEntry = todaysData.reduce((earliest, current) => {
+        return new Date(current.timestamp) < new Date(earliest.timestamp) ? current : earliest;
+    }, todaysData[0]);
+
+    // Current rankings
+    const latestEntry = data[data.length - 1];
+
+    // Define apps
+    const apps = ['Coinbase', 'Crypto.com', 'Binance'];
+
+    apps.forEach(app => {
+        const currentRank = latestEntry[app];
+        const initialRank = firstEntry[app];
+
+        const rankDisplayElement = document.getElementById(`${app.toLowerCase().replace('.', '')}Rank`);
+        
+        // Remove existing change indicator if any
+        const existingChange = rankDisplayElement.querySelector('.rank-change');
+        if (existingChange) {
+            existingChange.remove();
+        }
+
+        if (currentRank === undefined || initialRank === undefined) {
+            // If data is missing, do not display change
+            return;
+        }
+
+        const change = initialRank - currentRank;
+        if (change === 0) {
+            // No change
+            return;
+        }
+
+        // Create change indicator
+        const changeElement = document.createElement('span');
+        changeElement.classList.add('rank-change');
+        if (change > 0) {
+            changeElement.classList.add('up');
+            changeElement.textContent = `↑${change}`;
+        } else {
+            changeElement.classList.add('down');
+            changeElement.textContent = `↓${Math.abs(change)}`;
+        }
+
+        rankDisplayElement.appendChild(changeElement);
+    });
+}
+
+// Function to set no change indicators (optional)
+function setNoChangeIndicators() {
+    const apps = ['Coinbase', 'Crypto.com', 'Binance'];
+    apps.forEach(app => {
+        const rankDisplayElement = document.getElementById(`${app.toLowerCase().replace('.', '')}Rank`);
+        const existingChange = rankDisplayElement.querySelector('.rank-change');
+        if (existingChange) {
+            existingChange.remove();
+        }
+        // Optionally, you can add a neutral indicator here
+    });
 }
 
 // Add event listeners to tab buttons

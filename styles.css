@@ -90,6 +90,22 @@ h1 {
     font-size: 48px;
     font-weight: bold;
     margin: 10px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.rank-change {
+    font-size: 16px;
+    margin-left: 8px;
+}
+
+.rank-change.up {
+    color: green;
+}
+
+.rank-change.down {
+    color: red;
 }
 
 .last-updated {
