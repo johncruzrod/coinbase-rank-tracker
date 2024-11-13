@@ -2,6 +2,7 @@ const WORKER_URL = 'https://coinbase-rank-tracker.johncruzrod.workers.dev';
 
 let rankingChart;
 
+// Replace the fetchLatestRanking function with this:
 async function fetchLatestRanking() {
     console.log('Fetching latest ranking...');
     try {
@@ -9,11 +10,12 @@ async function fetchLatestRanking() {
         const data = await response.json();
         console.log('Latest ranking data:', data);
         
-        if (data.Coinbase) {
-            document.getElementById('currentRank').textContent = `#${data.Coinbase}`;
-            document.getElementById('lastUpdated').textContent = 
-                `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
-        }
+        // Update all rankings
+        document.getElementById('coinbaseRank').textContent = `#${data.Coinbase || '--'}`;
+        document.getElementById('cryptocomRank').textContent = `#${data['Crypto.com'] || '--'}`;
+        document.getElementById('binanceRank').textContent = `#${data.Binance || '--'}`;
+        document.getElementById('lastUpdated').textContent = 
+            `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
     } catch (error) {
         console.error('Error fetching latest ranking:', error);
     }

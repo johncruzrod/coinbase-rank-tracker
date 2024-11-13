@@ -3,21 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coinbase App Store Ranking</title>
+    <title>Crypto Exchange App Rankings</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Coinbase App Store Ranking</h1>
+        <h1>Crypto Exchange App Rankings</h1>
         
-        <div class="rank-display">
-            <h2>Current Ranking</h2>
-            <div class="current-rank" id="currentRank">--</div>
-            <div class="last-updated" id="lastUpdated">Last updated: --</div>
+        <div class="rankings-grid">
+            <div class="rank-display coinbase">
+                <h2>Coinbase</h2>
+                <div class="current-rank" id="coinbaseRank">--</div>
+            </div>
+            <div class="rank-display crypto-com">
+                <h2>Crypto.com</h2>
+                <div class="current-rank" id="cryptocomRank">--</div>
+            </div>
+            <div class="rank-display binance">
+                <h2>Binance</h2>
+                <div class="current-rank" id="binanceRank">--</div>
+            </div>
         </div>
-
+        
+        <div class="last-updated" id="lastUpdated">Last updated: --</div>
+        
         <div class="chart-container">
             <canvas id="rankingChart"></canvas>
         </div>
