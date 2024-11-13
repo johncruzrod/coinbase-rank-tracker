@@ -4,9 +4,9 @@ compatibility_date = "2024-01-01"
 
 # KV Namespace binding
 kv_namespaces = [
-  { binding = "RANK_STORE", id = "YOUR_KV_ID_HERE" }
+  { binding = "RANK_STORE", id = "1131a80697cb4b97afae35546e22d70d" }
 ]
 
-# Cron trigger for every 6 hours
+# Cron trigger for every minute (for testing)
 [triggers]
-crons = ["0 */6 * * *"]
+crons = ["* * * * *"]
