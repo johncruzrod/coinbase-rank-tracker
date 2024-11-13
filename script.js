@@ -168,54 +168,39 @@ async function updateChart(data) {
         afterDatasetsDraw: (chart, args, options) => {
             const { ctx, data, chartArea: { top, bottom, left, right }, scales: { x, y } } = chart;
 
-            // Get the latest valid rankings for sorting
-            const latestRankings = data.datasets.map((dataset, index) => {
-                const lastDataPoint = dataset.data[dataset.data.length - 1];
-                return {
-                    index,
-                    y: lastDataPoint ? lastDataPoint.y : null,
-                    label: dataset.label
-                };
-            }).filter(item => item.y !== null && item.y !== undefined);
-
-            // Sort by Y value (ranking)
-            latestRankings.sort((a, b) => a.y - b.y);
-
-            // Calculate spacing based on chart dimensions
-            const size = 24; // Logo size
-            const spacing = size + 8; // Minimum vertical spacing between logos
-            const maxY = bottom - size;
-            const minY = top;
-
-            latestRankings.forEach((ranking, i) => {
-                const dataset = data.datasets[ranking.index];
-                const meta = chart.getDatasetMeta(ranking.index);
+            data.datasets.forEach((dataset, datasetIndex) => {
+                const meta = chart.getDatasetMeta(datasetIndex);
                 const latestPoint = meta.data[meta.data.length - 1];
 
-                if (latestPoint && images[ranking.label]) {
-                    const img = images[ranking.label];
-                    let xPos = latestPoint.x;
-                    let yPos = latestPoint.y;
+                if (latestPoint) {
+                    const appLabel = dataset.label;
+                    const latestY = dataset.data[dataset.data.length - 1].y;
 
-                    // If y position would result in logo being cut off at top
-                    if (yPos - size/2 < minY) {
-                        yPos = minY + size/2;
+                    // Only draw the logo if the latest ranking is valid
+                    if (latestY !== null && images[appLabel]) {
+                        const img = images[appLabel];
+                        const size = 24; // Size of the logo
+                        const xPos = latestPoint.x - size / 2;
+                        const yPos = latestPoint.y - size / 2;
+
+                        // Ensure the image is within chart boundaries
+                        const maxX = right - size;
+                        const minX = left;
+                        const maxY = bottom - size;
+                        const minY = top;
+
+                        const finalX = Math.min(Math.max(xPos, minX), maxX);
+                        const finalY = Math.min(Math.max(yPos, minY), maxY);
+
+                        ctx.drawImage(img, finalX, finalY, size, size);
                     }
-                    // If y position would result in logo being cut off at bottom
-                    if (yPos + size/2 > maxY) {
-                        yPos = maxY - size/2;
-                    }
-
-                    // Calculate final positions
-                    const finalX = Math.min(xPos - size/2, right - size);
-                    const finalY = Math.min(Math.max(yPos - size/2, minY), maxY);
-
-                    // Draw the logo
-                    ctx.drawImage(img, finalX, finalY, size, size);
                 }
             });
         }
     };
+
+    // Register the plugin
+    Chart.register(imagePlugin);
 
     // Create the chart
     rankingChart = new Chart(ctx, {
@@ -246,7 +231,7 @@ async function updateChart(data) {
                     callbacks: {
                         title: (tooltipItems) => {
                             const date = tooltipItems[0].parsed.x;
-                            return new Date(date).toLocaleString('en-GB');
+                            return new Date(date).toLocaleString('en-GB'); // DD/MM/YY format
                         },
                         label: (tooltipItem) => {
                             return `${tooltipItem.dataset.label}: ${tooltipItem.parsed.y || 'N/A'}`;
@@ -262,21 +247,14 @@ async function updateChart(data) {
             scales: {
                 y: {
                     reverse: true,
-                    suggestedMin: -2, // Add padding at top
+                    suggestedMin: 1,
                     suggestedMax: 100,
                     ticks: {
                         stepSize: 10,
-                        color: '#555',
-                        callback: function(value) {
-                            // Don't show negative values in axis
-                            return value <= 0 ? '' : value;
-                        }
+                        color: '#555'
                     },
                     grid: {
-                        color: '#eee',
-                        drawOnChartArea: function(context) {
-                            return context.tick.value > 0;
-                        }
+                        color: '#eee'
                     },
                     title: {
                         display: true,
@@ -292,9 +270,9 @@ async function updateChart(data) {
                     time: {
                         unit: 'day',
                         displayFormats: {
-                            day: 'dd/MM/yy'
+                            day: 'dd/MM/yy' // DDMMYY format
                         },
-                        tooltipFormat: 'dd/MM/yy'
+                        tooltipFormat: 'dd/MM/yy' // Tooltip date format
                     },
                     grid: {
                         color: '#eee'
@@ -324,10 +302,7 @@ async function updateChart(data) {
             },
             layout: {
                 padding: {
-                    top: 20,
-                    right: 40,
-                    bottom: 10,
-                    left: 10
+                    right: 40 // Added extra padding to accommodate logos
                 }
             }
         },
@@ -344,7 +319,7 @@ function initializeData() {
 // Function to handle tab switching
 function handleTabSwitch(event) {
     const selectedCategory = event.target.getAttribute('data-category');
-    if (selectedCategory === currentCategory) return;
+    if (selectedCategory === currentCategory) return; // Do nothing if same category
 
     currentCategory = selectedCategory;
 
