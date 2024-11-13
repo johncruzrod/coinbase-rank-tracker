@@ -13,6 +13,38 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+h1 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.tabs {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    background: #e0e0e0;
+    border: none;
+    padding: 10px 20px;
+    margin: 0 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s;
+}
+
+.tab-button.active {
+    background: #1652f0;
+    color: white;
+}
+
+.tab-button:hover {
+    background: #c0c0c0;
+}
+
 .rankings-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -59,15 +91,25 @@ body {
     margin-top: 20px;
 }
 
-h1 {
-    text-align: center;
-    color: #333;
-    margin-bottom: 30px;
-}
-
 h2 {
     color: #666;
     font-weight: normal;
     margin: 0;
     font-size: 18px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .rankings-grid {
+        grid-template-columns: repeat(1, 1fr);
+    }
+
+    .tab-button {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .current-rank {
+        font-size: 36px;
+    }
 }

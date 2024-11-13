@@ -12,7 +12,12 @@
     <div class="container">
         <h1>Crypto Exchange App Rankings</h1>
         
-        <div class="rankings-grid">
+        <div class="tabs">
+            <button class="tab-button active" data-category="finance">Finance</button>
+            <button class="tab-button" data-category="global">Global</button>
+        </div>
+        
+        <div class="rankings-grid" id="rankingsGrid">
             <div class="rank-display coinbase">
                 <h2>Coinbase</h2>
                 <div class="current-rank" id="coinbaseRank">--</div>
