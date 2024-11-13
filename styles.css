@@ -10,13 +10,21 @@ body {
     background: white;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 h1 {
     text-align: center;
     color: #333;
+    margin-bottom: 10px;
+}
+
+.description {
+    text-align: center;
+    color: #555;
+    font-size: 16px;
     margin-bottom: 20px;
+    line-height: 1.5;
 }
 
 .tabs {
@@ -33,12 +41,13 @@ h1 {
     border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
-    transition: background 0.3s;
+    transition: background 0.3s, transform 0.3s;
 }
 
 .tab-button.active {
     background: #1652f0;
     color: white;
+    transform: scale(1.05);
 }
 
 .tab-button:hover {
@@ -57,6 +66,12 @@ h1 {
     padding: 15px;
     border-radius: 8px;
     background: #f8f9fa;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.rank-display:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .coinbase .current-rank {
@@ -86,9 +101,17 @@ h1 {
 
 .chart-container {
     position: relative;
-    height: 400px;
+    height: 500px; /* Increased height for better visibility */
     width: 100%;
     margin-top: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+canvas {
+    background: #ffffff;
+    border-radius: 10px;
 }
 
 h2 {
@@ -111,5 +134,13 @@ h2 {
 
     .current-rank {
         font-size: 36px;
+    }
+
+    .description {
+        font-size: 14px;
+    }
+
+    .chart-container {
+        height: 400px;
     }
 }
