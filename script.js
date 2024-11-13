@@ -168,61 +168,52 @@ async function updateChart(data) {
         afterDatasetsDraw: (chart, args, options) => {
             const { ctx, data, chartArea: { top, bottom, left, right }, scales: { x, y } } = chart;
             
-            // Keep track of used positions
-            const usedPositions = [];
-            const size = 24; // Size of the logo
-            const padding = 2; // Minimum padding between logos
-
-            data.datasets.forEach((dataset, datasetIndex) => {
+            // Sort datasets by Y position (ranking) to handle overlaps from top to bottom
+            const datasetPositions = data.datasets.map((dataset, datasetIndex) => {
                 const meta = chart.getDatasetMeta(datasetIndex);
                 const latestPoint = meta.data[meta.data.length - 1];
-
-                if (latestPoint) {
-                    const appLabel = dataset.label;
-                    const latestY = dataset.data[dataset.data.length - 1].y;
-
-                    // Only draw the logo if the latest ranking is valid
-                    if (latestY !== null && images[appLabel]) {
-                        const img = images[appLabel];
-                        let xPos = latestPoint.x - size / 2;
-                        let yPos = latestPoint.y - size / 2;
-
-                        // Ensure the image is within chart boundaries
-                        const maxX = right - size;
-                        const minX = left;
-                        const maxY = bottom - size;
-                        const minY = top;
-
-                        let finalX = Math.min(Math.max(xPos, minX), maxX);
-                        let finalY = Math.min(Math.max(yPos, minY), maxY);
-
-                        // Check for collisions with previously placed logos
-                        let collision;
-                        do {
-                            collision = false;
-                            for (const pos of usedPositions) {
-                                if (Math.abs(finalX - pos.x) < size + padding && 
-                                    Math.abs(finalY - pos.y) < size + padding) {
-                                    // Collision detected, move down
-                                    finalY += size + padding;
-                                    // If moving down puts us out of bounds, wrap to top
-                                    if (finalY > maxY) {
-                                        finalY = minY;
-                                        finalX += size + padding;
-                                    }
-                                    collision = true;
-                                    break;
-                                }
-                            }
-                        } while (collision && finalX <= maxX);
-
-                        // Only draw if we found a valid position
-                        if (finalX <= maxX) {
-                            ctx.drawImage(img, finalX, finalY, size, size);
-                            usedPositions.push({ x: finalX, y: finalY });
-                        }
-                    }
+                const latestY = dataset.data[dataset.data.length - 1].y;
+                
+                return {
+                    dataset,
+                    y: latestPoint ? latestPoint.y : null,
+                    x: latestPoint ? latestPoint.x : null,
+                    value: latestY,
+                    appLabel: dataset.label
+                };
+            }).filter(pos => pos.y !== null && images[pos.appLabel]);
+    
+            // Sort by Y position
+            datasetPositions.sort((a, b) => a.y - b.y);
+    
+            const size = 24; // Size of the logo
+            const minSpacing = size + 4; // Minimum spacing between logos
+            let lastY = null;
+            let xOffset = 0;
+    
+            datasetPositions.forEach((pos) => {
+                const img = images[pos.appLabel];
+                let xPos = pos.x;
+                let yPos = pos.y - size/2; // Center vertically on the line
+    
+                // If this logo would overlap with the previous one
+                if (lastY !== null && Math.abs(yPos - lastY) < minSpacing) {
+                    // Instead of moving down, move right
+                    xOffset += minSpacing;
+                } else {
+                    // Reset x offset if no overlap
+                    xOffset = 0;
                 }
+    
+                // Apply the x offset and ensure within bounds
+                const finalX = Math.min(xPos + xOffset, right - size);
+                const finalY = Math.max(top, Math.min(yPos, bottom - size));
+    
+                // Draw the logo
+                ctx.drawImage(img, finalX, finalY, size, size);
+    
+                // Update last Y position
+                lastY = yPos;
             });
         }
     };
