@@ -167,6 +167,11 @@ async function updateChart(data) {
         id: 'imagePlugin',
         afterDatasetsDraw: (chart, args, options) => {
             const { ctx, data, chartArea: { top, bottom, left, right }, scales: { x, y } } = chart;
+            
+            // Keep track of used positions
+            const usedPositions = [];
+            const size = 24; // Size of the logo
+            const padding = 2; // Minimum padding between logos
 
             data.datasets.forEach((dataset, datasetIndex) => {
                 const meta = chart.getDatasetMeta(datasetIndex);
@@ -179,9 +184,8 @@ async function updateChart(data) {
                     // Only draw the logo if the latest ranking is valid
                     if (latestY !== null && images[appLabel]) {
                         const img = images[appLabel];
-                        const size = 24; // Size of the logo
-                        const xPos = latestPoint.x - size / 2;
-                        const yPos = latestPoint.y - size / 2;
+                        let xPos = latestPoint.x - size / 2;
+                        let yPos = latestPoint.y - size / 2;
 
                         // Ensure the image is within chart boundaries
                         const maxX = right - size;
@@ -189,10 +193,34 @@ async function updateChart(data) {
                         const maxY = bottom - size;
                         const minY = top;
 
-                        const finalX = Math.min(Math.max(xPos, minX), maxX);
-                        const finalY = Math.min(Math.max(yPos, minY), maxY);
+                        let finalX = Math.min(Math.max(xPos, minX), maxX);
+                        let finalY = Math.min(Math.max(yPos, minY), maxY);
 
-                        ctx.drawImage(img, finalX, finalY, size, size);
+                        // Check for collisions with previously placed logos
+                        let collision;
+                        do {
+                            collision = false;
+                            for (const pos of usedPositions) {
+                                if (Math.abs(finalX - pos.x) < size + padding && 
+                                    Math.abs(finalY - pos.y) < size + padding) {
+                                    // Collision detected, move down
+                                    finalY += size + padding;
+                                    // If moving down puts us out of bounds, wrap to top
+                                    if (finalY > maxY) {
+                                        finalY = minY;
+                                        finalX += size + padding;
+                                    }
+                                    collision = true;
+                                    break;
+                                }
+                            }
+                        } while (collision && finalX <= maxX);
+
+                        // Only draw if we found a valid position
+                        if (finalX <= maxX) {
+                            ctx.drawImage(img, finalX, finalY, size, size);
+                            usedPositions.push({ x: finalX, y: finalY });
+                        }
                     }
                 }
             });
