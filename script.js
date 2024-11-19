@@ -18,6 +18,11 @@ async function fetchLatestRanking(category) {
         document.getElementById('binanceRank').textContent = data.Binance !== undefined ? data.Binance : 'N/A';
         document.getElementById('lastUpdated').textContent = 
             `Last updated: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : '--'}`;
+
+        // Update daily changes if historical data is already available
+        if (historicalDataCache[category]) {
+            updateDailyChanges(category, historicalDataCache[category]);
+        }
     } catch (error) {
         console.error(`Error fetching latest ranking for ${category}:`, error);
     }
@@ -142,7 +147,12 @@ function updateChart(data) {
 // Function to initialize data fetch
 function initializeData() {
     fetchLatestRanking(currentCategory);
-    fetchHistoricalData(currentCategory);
+    if (!historicalDataCache[currentCategory]) {
+        fetchHistoricalData(currentCategory);
+    } else {
+        updateChart(historicalDataCache[currentCategory]);
+        updateDailyChanges(currentCategory, historicalDataCache[currentCategory]);
+    }
 }
 
 // Function to handle tab switching
@@ -250,8 +260,14 @@ document.querySelectorAll('.tab-button').forEach(button => {
 console.log('Starting initial data fetch...');
 initializeData();
 
-// Refresh data every minute
+// Refresh latest rankings every minute
 setInterval(() => {
-    console.log('Refreshing data...');
-    initializeData();
+    console.log('Refreshing latest ranking data...');
+    fetchLatestRanking(currentCategory);
 }, 60000);
+
+// Refresh historical data every hour
+setInterval(() => {
+    console.log('Refreshing historical data...');
+    fetchHistoricalData(currentCategory);
+}, 3600000); // 1 hour
