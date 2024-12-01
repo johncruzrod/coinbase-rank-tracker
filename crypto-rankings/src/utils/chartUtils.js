@@ -1,3 +1,30 @@
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    TimeScale,
+    Filler,
+    LineController
+  } from 'chart.js';
+  
+  ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    LineController,  // Add this
+    Title,
+    Tooltip,
+    Legend,
+    TimeScale,
+    Filler
+  );
+
 export const filterDataByTimeRange = (data, range) => {
     if (!data || !data.length) return [];
     

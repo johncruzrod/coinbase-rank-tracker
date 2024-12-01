@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+// 1. Imports
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Chart } from 'react-chartjs-2';
 import { ArrowUpCircle, ArrowDownCircle, RefreshCw, TrendingUp, Clock } from 'lucide-react';
 import {
@@ -18,6 +19,7 @@ import { format } from 'date-fns';
 import _ from 'lodash';
 import { filterDataByTimeRange, getTimeUnit, getTooltipFormat } from '../utils/chartUtils';
 
+// 2. Chart Registration
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -30,8 +32,10 @@ ChartJS.register(
   Filler
 );
 
+// 3. Constants
 const WORKER_URL = 'https://coinbase-rank-tracker.johncruzrod.workers.dev';
 
+// 4. Utility Components
 const StatCard = ({ title, value, change, color, icon: Icon }) => (
   <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
     <div className="flex items-center justify-between mb-4">
@@ -42,7 +46,7 @@ const StatCard = ({ title, value, change, color, icon: Icon }) => (
       <p className="text-4xl font-bold" style={{ color }}>
         {value}
       </p>
-      {change && (
+      {change !== null && change !== undefined && (
         <div className={`flex items-center space-x-1 ${change > 0 ? 'text-green-500' : 'text-red-500'}`}>
           {change > 0 ? <ArrowUpCircle className="w-4 h-4" /> : <ArrowDownCircle className="w-4 h-4" />}
           <span className="text-sm font-medium">{Math.abs(change)}</span>
@@ -65,7 +69,9 @@ const TabButton = ({ active, children, onClick }) => (
   </button>
 );
 
+// 5. Main Component
 export default function CryptoRankingDashboard() {
+  // States
   const [currentCategory, setCurrentCategory] = useState('finance');
   const [latestRankings, setLatestRankings] = useState({});
   const [historicalData, setHistoricalData] = useState([]);
@@ -75,7 +81,17 @@ export default function CryptoRankingDashboard() {
   const historicalDataCache = useRef({});
   const [stats, setStats] = useState({});
 
-  const calculateStats = (data) => {
+  // Callbacks
+  const calculateStandardDeviation = useCallback((arr) => {
+    const mean = _.mean(arr);
+    const squareDiffs = arr.map(value => {
+      const diff = value - mean;
+      return diff * diff;
+    });
+    return Math.sqrt(_.mean(squareDiffs));
+  }, []);
+
+  const calculateStats = useCallback((data) => {
     const apps = ['Coinbase', 'Crypto.com', 'Binance'];
     const stats = {};
     
@@ -84,7 +100,7 @@ export default function CryptoRankingDashboard() {
       if (rankings.length > 0) {
         stats[app] = {
           average: _.mean(rankings).toFixed(1),
-          volatility: _.round(_.std(rankings) || 0, 2),
+          volatility: calculateStandardDeviation(rankings).toFixed(2),
           best: _.min(rankings),
           worst: _.max(rankings)
         };
@@ -92,7 +108,7 @@ export default function CryptoRankingDashboard() {
     });
     
     return stats;
-  };
+  }, [calculateStandardDeviation]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -127,7 +143,7 @@ export default function CryptoRankingDashboard() {
     fetchData();
     const rankingInterval = setInterval(fetchData, 60000);
     return () => clearInterval(rankingInterval);
-  }, [currentCategory]);
+  }, [currentCategory, calculateStats]);
 
   const getChartOptions = () => {
     const { min, max } = getYAxisMinMax(filterDataByTimeRange(historicalData, timeRange));
@@ -329,116 +345,116 @@ export default function CryptoRankingDashboard() {
       console.error('Error formatting date:', error);
       return '--';
     }
-};
+  };
 
-return (
-  <div className="min-h-screen bg-gray-50 py-8">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">
-          Crypto Exchange Rankings
-        </h1>
-        <p className="text-gray-600">
-          Track real-time App Store rankings for major cryptocurrency exchanges
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      {[
-        { name: 'Coinbase', color: '#1652f0', icon: TrendingUp },
-        { name: 'Crypto.com', color: '#1199fa', icon: TrendingUp },
-        { name: 'Binance', color: '#f0b90b', icon: TrendingUp }
-        ].map((app) => (
-        <StatCard
-            key={app.name}
-            title={app.name}
-            value={latestRankings[app.name] || '--'}
-            change={calculate24HourChange(historicalData, app.name, latestRankings[app.name])}
-            color={app.color}
-            icon={app.icon}
-        />
-        ))}
-        <div className="bg-white rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-gray-500 text-sm font-medium">Last Updated</h3>
-            <Clock className="w-5 h-5 text-gray-400" />
-          </div>
-          <p className="text-gray-900 text-sm">
-            {formatLastUpdated()}
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Crypto Exchange Rankings
+          </h1>
+          <p className="text-gray-600">
+            Track real-time App Store rankings for major cryptocurrency exchanges
           </p>
         </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
-          <div className="flex space-x-4">
-            <TabButton
-              active={currentCategory === 'finance'}
-              onClick={() => setCurrentCategory('finance')}
-            >
-              Finance
-            </TabButton>
-            <TabButton
-              active={currentCategory === 'global'}
-              onClick={() => setCurrentCategory('global')}
-            >
-              All Apps
-            </TabButton>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[
+            { name: 'Coinbase', color: '#1652f0', icon: TrendingUp },
+            { name: 'Crypto.com', color: '#1199fa', icon: TrendingUp },
+            { name: 'Binance', color: '#f0b90b', icon: TrendingUp }
+          ].map((app) => (
+            <StatCard
+              key={app.name}
+              title={app.name}
+              value={latestRankings[app.name] || '--'}
+              change={calculate24HourChange(historicalData, app.name, latestRankings[app.name])}
+              color={app.color}
+              icon={app.icon}
+            />
+          ))}
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-500 text-sm font-medium">Last Updated</h3>
+              <Clock className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-gray-900 text-sm">
+              {formatLastUpdated()}
+            </p>
           </div>
-          <div className="flex space-x-4">
-            {['24h', '7d', '30d', 'all'].map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 ${
-                  timeRange === range
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+            <div className="flex space-x-4">
+              <TabButton
+                active={currentCategory === 'finance'}
+                onClick={() => setCurrentCategory('finance')}
               >
-                {range === 'all' ? 'All Time' : range}
-              </button>
-            ))}
+                Finance
+              </TabButton>
+              <TabButton
+                active={currentCategory === 'global'}
+                onClick={() => setCurrentCategory('global')}
+              >
+                All Apps
+              </TabButton>
+            </div>
+            <div className="flex space-x-4">
+              {['24h', '7d', '30d', 'all'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 ${
+                    timeRange === range
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {range === 'all' ? 'All Time' : range}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="h-[400px] relative">
+            {isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
+              </div>
+            ) : (
+              <Chart type="line" data={getChartData()} options={getChartOptions()} />
+            )}
           </div>
         </div>
-        
-        <div className="h-[400px] relative">
-          {isLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
-            </div>
-          ) : (
-            <Chart type="line" data={getChartData()} options={getChartOptions()} />
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {Object.entries(stats).map(([app, stat]) => (
-          <div key={app} className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{app} Statistics</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Average Rank</span>
-                <span className="font-medium">{stat.average}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Volatility</span>
-                <span className="font-medium">{stat.volatility}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Best Rank</span>
-                <span className="font-medium text-green-600">{stat.best}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Worst Rank</span>
-                <span className="font-medium text-red-600">{stat.worst}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {Object.entries(stats).map(([app, stat]) => (
+            <div key={app} className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{app} Statistics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Average Rank</span>
+                  <span className="font-medium">{stat.average}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Volatility</span>
+                  <span className="font-medium">{stat.volatility}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Best Rank</span>
+                  <span className="font-medium text-green-600">{stat.best}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Worst Rank</span>
+                  <span className="font-medium text-red-600">{stat.worst}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
