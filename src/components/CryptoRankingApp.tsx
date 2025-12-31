@@ -1,45 +1,24 @@
-import { useState, useEffect } from 'react';
-import { Chart } from 'react-chartjs-2';
-import { TrendingUp, TrendingDown, Clock, BarChart3, Activity, LucideIcon } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
   Tooltip,
-  Legend,
-  TimeScale,
-  Filler,
-  ChartOptions,
-  ChartData,
-} from 'chart.js';
-import 'chartjs-adapter-date-fns';
+  CartesianGrid,
+  TooltipProps,
+} from 'recharts';
 import { format } from 'date-fns';
-import { filterDataByTimeRange, getTimeUnit, getTooltipFormat, RankingDataPoint } from '../utils/chartUtils';
+import { filterDataByTimeRange, RankingDataPoint } from '../utils/chartUtils';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-  Filler
-);
-
+// ============================================================================
 // Types
+// ============================================================================
+
 type AppName = 'Coinbase' | 'Crypto.com' | 'Binance';
 type TimeRange = '24h' | '7d' | '30d' | 'all';
 type Category = 'finance' | 'global';
-
-interface AppColor {
-  primary: string;
-  light: string;
-}
 
 interface AppStats {
   average: number;
@@ -60,375 +39,332 @@ interface SummaryResponse {
   chartData: RankingDataPoint[];
 }
 
-// App brand colors
-const APP_COLORS: Record<AppName, AppColor> = {
-  Coinbase: { primary: '#0052FF', light: 'rgba(0, 82, 255, 0.08)' },
-  'Crypto.com': { primary: '#002D74', light: 'rgba(0, 45, 116, 0.08)' },
-  Binance: { primary: '#F0B90B', light: 'rgba(240, 185, 11, 0.08)' },
+// ============================================================================
+// Constants
+// ============================================================================
+
+const APPS: { key: AppName; label: string; color: string; cssClass: string }[] = [
+  { key: 'Coinbase', label: 'Coinbase', color: '#0052FF', cssClass: 'coinbase' },
+  { key: 'Crypto.com', label: 'Crypto.com', color: '#7C3AED', cssClass: 'crypto-com' },
+  { key: 'Binance', label: 'Binance', color: '#D97706', cssClass: 'binance' },
+];
+
+const TIME_RANGES: { key: TimeRange; label: string }[] = [
+  { key: '24h', label: '24H' },
+  { key: '7d', label: '7D' },
+  { key: '30d', label: '30D' },
+  { key: 'all', label: 'ALL' },
+];
+
+const CATEGORIES: { key: Category; label: string }[] = [
+  { key: 'finance', label: 'Finance' },
+  { key: 'global', label: 'All Apps' },
+];
+
+// ============================================================================
+// Custom Tooltip
+// ============================================================================
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (!active || !payload?.length) return null;
+
+  const date = new Date(label);
+  const formattedDate = format(date, 'MMM d, yyyy');
+  const formattedTime = format(date, 'h:mm a');
+
+  return (
+    <div className="chart-tooltip">
+      <div className="tooltip-date">
+        {formattedDate} <span className="tooltip-time">{formattedTime}</span>
+      </div>
+      <div className="tooltip-items">
+        {payload
+          .filter((p) => p.value !== null && p.value !== undefined)
+          .sort((a, b) => (a.value as number) - (b.value as number))
+          .map((entry) => (
+            <div key={entry.dataKey} className="tooltip-item">
+              <span className="tooltip-dot" style={{ background: entry.color }} />
+              <span className="tooltip-label">{entry.name}</span>
+              <span className="tooltip-value">#{entry.value}</span>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
 };
 
-const APPS: AppName[] = ['Coinbase', 'Crypto.com', 'Binance'];
+// ============================================================================
+// Rank Display Component
+// ============================================================================
 
-// Rank Card Component
-interface RankCardProps {
-  name: AppName;
+interface RankDisplayProps {
+  app: (typeof APPS)[number];
   rank: number | null | undefined;
   change: number | null | undefined;
-  color: string;
+  stats: AppStats | undefined;
 }
 
-const RankCard: React.FC<RankCardProps> = ({ name, rank, change, color }) => {
-  const isPositive = change !== null && change !== undefined && change > 0;
-  const hasChange = change !== null && change !== undefined;
+const RankDisplay = ({ app, rank, change, stats }: RankDisplayProps) => {
+  const changeType =
+    change === null || change === undefined
+      ? 'neutral'
+      : change > 0
+        ? 'positive'
+        : change < 0
+          ? 'negative'
+          : 'neutral';
 
   return (
-    <div className="glass-card group">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-          <span className="text-sm font-medium text-gray-500">{name}</span>
-        </div>
-        {hasChange && (
-          <div
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-              isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-            }`}
-          >
-            {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-            <span>{Math.abs(change)}</span>
-          </div>
+    <div className={`rank-display ${app.cssClass}`}>
+      <div className="rank-number">
+        {rank !== null && rank !== undefined ? (
+          <>
+            <span className="hash">#</span>
+            {rank}
+          </>
+        ) : (
+          <span className="rank-null">—</span>
         )}
       </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-4xl font-semibold tracking-tight text-gray-900">{rank ?? '—'}</span>
-        {rank && <span className="text-lg text-gray-400 font-medium">th</span>}
+
+      <div className="rank-app-name">{app.label}</div>
+
+      <div className={`rank-change ${changeType}`}>
+        {changeType === 'positive' && '↑'}
+        {changeType === 'negative' && '↓'}
+        {changeType === 'neutral' && '—'}
+        {change !== null && change !== undefined && change !== 0 && (
+          <span>{Math.abs(change)}</span>
+        )}
+        {changeType !== 'neutral' && <span>24h</span>}
       </div>
-      <p className="mt-2 text-xs text-gray-400">
-        {hasChange ? (isPositive ? 'Moved up in 24h' : 'Moved down in 24h') : 'No change data'}
-      </p>
+
+      {stats && (
+        <div className="rank-stats">
+          <div className="rank-stat">
+            <span className="rank-stat-label">Best</span>
+            <span className="rank-stat-value">#{stats.best}</span>
+          </div>
+          <div className="rank-stat">
+            <span className="rank-stat-label">Worst</span>
+            <span className="rank-stat-value">#{stats.worst}</span>
+          </div>
+          <div className="rank-stat">
+            <span className="rank-stat-label">Avg</span>
+            <span className="rank-stat-value">#{stats.average.toFixed(0)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// Stats Card Component
-interface StatsCardProps {
-  name: AppName;
-  stats: AppStats | undefined;
-  color: string;
-}
-
-const StatsCard: React.FC<StatsCardProps> = ({ name, stats, color }) => {
-  if (!stats) return null;
-
-  return (
-    <div className="glass-card">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-        <span className="text-sm font-medium text-gray-900">{name}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-xs text-gray-400 mb-1">Average</p>
-          <p className="text-lg font-semibold text-gray-900">{stats.average}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400 mb-1">Volatility</p>
-          <p className="text-lg font-semibold text-gray-900">{stats.volatility}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400 mb-1">Best</p>
-          <p className="text-lg font-semibold text-emerald-600">#{stats.best}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400 mb-1">Worst</p>
-          <p className="text-lg font-semibold text-rose-500">#{stats.worst}</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
+// ============================================================================
 // Main Component
-const CryptoRankingDashboard: React.FC = () => {
-  const [currentCategory, setCurrentCategory] = useState<Category>('finance');
+// ============================================================================
+
+const CryptoRankingApp = () => {
+  const [category, setCategory] = useState<Category>('finance');
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/apps/summary?category=${currentCategory}`);
-        const summaryData: SummaryResponse = await response.json();
-        setData(summaryData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+        const res = await fetch(`/api/apps/summary?category=${category}`);
+        const json: SummaryResponse = await res.json();
+        setData(json);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchData();
-  }, [currentCategory]);
+  }, [category]);
 
-  const getYAxisMinMax = (chartData: RankingDataPoint[]): { min: number; max: number } => {
-    if (!chartData?.length) return { min: 1, max: 100 };
+  // Process chart data
+  const chartData = useMemo(() => {
+    if (!data?.chartData) return [];
+    const filtered = filterDataByTimeRange(data.chartData, timeRange);
+    return filtered.map((d) => ({
+      timestamp: new Date(d.timestamp).getTime(),
+      Coinbase: d.Coinbase && d.Coinbase <= 100 ? d.Coinbase : null,
+      'Crypto.com': d['Crypto.com'] && d['Crypto.com'] <= 100 ? d['Crypto.com'] : null,
+      Binance: d.Binance && d.Binance <= 100 ? d.Binance : null,
+    }));
+  }, [data?.chartData, timeRange]);
 
-    const validRankings = chartData.flatMap((d) =>
-      APPS.map((app) => d[app]).filter((rank): rank is number => rank !== null && rank <= 100)
+  // Calculate Y-axis domain
+  const yDomain = useMemo(() => {
+    if (!chartData.length) return [1, 100];
+    const allRanks = chartData.flatMap((d) =>
+      [d.Coinbase, d['Crypto.com'], d.Binance].filter((r): r is number => r !== null)
     );
+    if (!allRanks.length) return [1, 100];
+    const min = Math.max(1, Math.floor(Math.min(...allRanks) / 10) * 10 - 10);
+    const max = Math.min(100, Math.ceil(Math.max(...allRanks) / 10) * 10 + 10);
+    return [min, max];
+  }, [chartData]);
 
-    if (!validRankings.length) return { min: 1, max: 100 };
+  const formattedTime = data?.latest?.timestamp
+    ? format(new Date(data.latest.timestamp), 'MMM d, h:mm a')
+    : '—';
 
-    const minVal = Math.max(1, Math.floor(Math.min(...validRankings) / 10) * 10);
-    const maxVal = Math.min(100, Math.ceil(Math.max(...validRankings) / 10) * 10);
-
-    return {
-      min: Math.max(1, minVal - 5),
-      max: Math.min(100, maxVal + 5),
-    };
+  const formatXAxis = (timestamp: number) => {
+    const date = new Date(timestamp);
+    if (timeRange === '24h') return format(date, 'ha');
+    if (timeRange === '7d') return format(date, 'EEE');
+    return format(date, 'MMM d');
   };
-
-  const getChartOptions = (): ChartOptions<'line'> => {
-    const filteredData = data?.chartData ? filterDataByTimeRange(data.chartData, timeRange) : [];
-    const { min, max } = getYAxisMinMax(filteredData);
-
-    return {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          titleColor: '#1f2937',
-          bodyColor: '#6b7280',
-          borderColor: 'rgba(0, 0, 0, 0.05)',
-          borderWidth: 1,
-          cornerRadius: 12,
-          padding: 16,
-          boxPadding: 6,
-          usePointStyle: true,
-          titleFont: { size: 13, weight: 'bold' },
-          bodyFont: { size: 12 },
-        },
-      },
-      scales: {
-        y: {
-          reverse: true,
-          min,
-          max,
-          ticks: {
-            stepSize: Math.ceil((max - min) / 8),
-            font: { size: 11, weight: 500 },
-            color: '#9ca3af',
-            padding: 8,
-            callback: (value) => (Math.floor(value as number) === value ? value : ''),
-          },
-          grid: { color: 'rgba(0, 0, 0, 0.03)' },
-          border: { display: false },
-        },
-        x: {
-          type: 'time',
-          time: {
-            unit: getTimeUnit(timeRange),
-            tooltipFormat: getTooltipFormat(timeRange),
-            displayFormats: { hour: 'ha', day: 'MMM d', month: 'MMM yyyy' },
-          },
-          grid: { display: false },
-          border: { display: false },
-          ticks: { font: { size: 11, weight: 500 }, color: '#9ca3af', maxRotation: 0, padding: 8 },
-        },
-      },
-      interaction: { mode: 'nearest', axis: 'x', intersect: false },
-      elements: {
-        point: { radius: 0, hoverRadius: 5, hoverBorderWidth: 2, hoverBackgroundColor: '#fff' },
-      },
-    };
-  };
-
-  const getChartData = (): ChartData<'line'> => {
-    const filteredData = data?.chartData ? filterDataByTimeRange(data.chartData, timeRange) : [];
-
-    return {
-      labels: filteredData.map((d) => new Date(d.timestamp)),
-      datasets: [
-        {
-          label: 'Coinbase',
-          data: filteredData.map((d) => ({
-            x: new Date(d.timestamp).getTime(),
-            y: d.Coinbase && d.Coinbase <= 100 ? d.Coinbase : null,
-          })),
-          borderColor: APP_COLORS.Coinbase.primary,
-          backgroundColor: APP_COLORS.Coinbase.light,
-          borderWidth: 2.5,
-          tension: 0.4,
-          spanGaps: true,
-          fill: true,
-        },
-        {
-          label: 'Crypto.com',
-          data: filteredData.map((d) => ({
-            x: new Date(d.timestamp).getTime(),
-            y: d['Crypto.com'] && d['Crypto.com'] <= 100 ? d['Crypto.com'] : null,
-          })),
-          borderColor: APP_COLORS['Crypto.com'].primary,
-          backgroundColor: APP_COLORS['Crypto.com'].light,
-          borderWidth: 2.5,
-          tension: 0.4,
-          spanGaps: true,
-          fill: true,
-        },
-        {
-          label: 'Binance',
-          data: filteredData.map((d) => ({
-            x: new Date(d.timestamp).getTime(),
-            y: d.Binance && d.Binance <= 100 ? d.Binance : null,
-          })),
-          borderColor: APP_COLORS.Binance.primary,
-          backgroundColor: APP_COLORS.Binance.light,
-          borderWidth: 2.5,
-          tension: 0.4,
-          spanGaps: true,
-          fill: true,
-        },
-      ],
-    };
-  };
-
-  const formatLastUpdated = (): string => {
-    if (!data?.latest?.timestamp) return '—';
-    try {
-      return format(new Date(data.latest.timestamp), 'MMM d, h:mm a');
-    } catch {
-      return '—';
-    }
-  };
-
-  const timeRanges: { key: TimeRange; label: string }[] = [
-    { key: '24h', label: '24H' },
-    { key: '7d', label: '7D' },
-    { key: '30d', label: '30D' },
-    { key: 'all', label: 'All' },
-  ];
-
-  const categories: { key: Category; label: string; icon: LucideIcon }[] = [
-    { key: 'finance', label: 'Finance', icon: BarChart3 },
-    { key: 'global', label: 'All Apps', icon: Activity },
-  ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass-header">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">App Store Rankings</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Crypto exchange performance tracker</p>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Clock className="w-4 h-4" />
-              <span>{formatLastUpdated()}</span>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="app-container">
+      <div className="app-background" />
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Category Tabs */}
-        <div className="flex gap-2 mb-8">
-          {categories.map(({ key, label, icon: Icon }) => (
+      {/* Header */}
+      <header className="app-header">
+        <div className="header-left">
+          <h1 className="app-title">Crypto App Rankings</h1>
+          <p className="app-subtitle">US App Store • Top Free Apps</p>
+        </div>
+
+        <div className="category-toggle">
+          {CATEGORIES.map((cat) => (
             <button
-              key={key}
-              onClick={() => setCurrentCategory(key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                currentCategory === key
-                  ? 'bg-gray-900 text-white shadow-lg shadow-gray-900/20'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-              }`}
+              key={cat.key}
+              className={`category-btn ${category === cat.key ? 'active' : ''}`}
+              onClick={() => setCategory(cat.key)}
             >
-              <Icon className="w-4 h-4" />
-              {label}
+              {cat.label}
             </button>
           ))}
         </div>
 
-        {/* Rank Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="timestamp">
+          <span className="timestamp-dot" />
+          <span>{formattedTime}</span>
+        </div>
+      </header>
+
+      {/* Main */}
+      <main className="main-content">
+        {/* Rankings */}
+        <section className="rankings-strip">
           {APPS.map((app) => (
-            <RankCard
-              key={app}
-              name={app}
-              rank={data?.latest?.[app]}
-              change={data?.stats?.[app]?.change_24h}
-              color={APP_COLORS[app].primary}
+            <RankDisplay
+              key={app.key}
+              app={app}
+              rank={data?.latest?.[app.key]}
+              change={data?.stats?.[app.key]?.change_24h}
+              stats={data?.stats?.[app.key]}
             />
           ))}
-        </div>
+        </section>
 
-        {/* Chart Section */}
-        <div className="glass-card mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Ranking History</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Track position changes over time</p>
+        {/* Chart */}
+        <section className="chart-section">
+          <div className="chart-header">
+            <div className="chart-legend">
+              {APPS.map((app) => (
+                <div key={app.key} className="legend-item">
+                  <span className="legend-dot" style={{ backgroundColor: app.color }} />
+                  <span>{app.label}</span>
+                </div>
+              ))}
             </div>
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-              {timeRanges.map(({ key, label }) => (
+            <div className="time-controls">
+              {TIME_RANGES.map((range) => (
                 <button
-                  key={key}
-                  onClick={() => setTimeRange(key)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                    timeRange === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  key={range.key}
+                  className={`time-btn ${timeRange === range.key ? 'active' : ''}`}
+                  onClick={() => setTimeRange(range.key)}
                 >
-                  {label}
+                  {range.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Chart Legend */}
-          <div className="flex gap-6 mb-6">
-            {APPS.map((app) => (
-              <div key={app} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: APP_COLORS[app].primary }} />
-                <span className="text-sm text-gray-600">{app}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Chart */}
-          <div className="h-[360px] relative">
+          <div className="chart-container">
             {isLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+              <div className="loading-container">
+                <div className="loading-spinner" />
               </div>
-            ) : data?.chartData && data.chartData.length > 0 ? (
-              <Chart type="line" data={getChartData()} options={getChartOptions()} />
+            ) : chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                  <defs>
+                    {APPS.map((app) => (
+                      <linearGradient key={app.key} id={`gradient-${app.key}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={app.color} stopOpacity={0.2} />
+                        <stop offset="100%" stopColor={app.color} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+
+                  <CartesianGrid
+                    stroke="rgba(0,0,0,0.06)"
+                    strokeDasharray="0"
+                    vertical={false}
+                  />
+
+                  <XAxis
+                    dataKey="timestamp"
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    tickFormatter={formatXAxis}
+                    stroke="rgba(0,0,0,0.1)"
+                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
+                    tickLine={false}
+                    axisLine={false}
+                    dy={10}
+                  />
+
+                  <YAxis
+                    reversed
+                    domain={yDomain}
+                    stroke="rgba(0,0,0,0.1)"
+                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `#${v}`}
+                    dx={-5}
+                    width={45}
+                  />
+
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(0,0,0,0.1)' }} />
+
+                  {APPS.map((app) => (
+                    <Line
+                      key={app.key}
+                      type="monotone"
+                      dataKey={app.key}
+                      name={app.label}
+                      stroke={app.color}
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{
+                        r: 5,
+                        fill: '#fff',
+                        stroke: app.color,
+                        strokeWidth: 2,
+                      }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400">No data available</div>
+              <div className="empty-state">No data available</div>
             )}
           </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {APPS.map((app) => (
-            <StatsCard key={app} name={app} stats={data?.stats?.[app]} color={APP_COLORS[app].primary} />
-          ))}
-        </div>
+        </section>
       </main>
-
-      {/* Footer */}
-      <footer className="max-w-6xl mx-auto px-6 py-8 mt-8 border-t border-gray-100">
-        <p className="text-center text-sm text-gray-400">Data sourced from App Store Top Charts. Updated hourly.</p>
-      </footer>
     </div>
   );
 };
 
-export default CryptoRankingDashboard;
+export default CryptoRankingApp;

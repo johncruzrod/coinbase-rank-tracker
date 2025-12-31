@@ -1,30 +1,3 @@
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-  Filler,
-  LineController,
-} from 'chart.js';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  LineController,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-  Filler
-);
-
 export interface RankingDataPoint {
   timestamp: string;
   Coinbase: number | null;
@@ -58,33 +31,5 @@ export const filterDataByTimeRange = (
     case 'all':
     default:
       return data;
-  }
-};
-
-export const getTimeUnit = (range: TimeRange): 'hour' | 'day' | 'month' => {
-  switch (range) {
-    case '24h':
-      return 'hour';
-    case '7d':
-      return 'day';
-    case '30d':
-    case 'all':
-      return 'month';
-    default:
-      return 'hour';
-  }
-};
-
-export const getTooltipFormat = (range: TimeRange): string => {
-  switch (range) {
-    case '24h':
-      return 'pp';
-    case '7d':
-      return 'MMM d, p';
-    case '30d':
-    case 'all':
-      return 'MMM d';
-    default:
-      return 'pp';
   }
 };
