@@ -3,28 +3,28 @@
  *
  * Handles /api/apps/* requests.
  * Proxies to VPC backend with API key authentication.
- * Uses CF Cache API for edge caching (1 hour TTL - matches scrape interval).
+ * Uses CF Cache API for edge caching (5 min TTL - data updates hourly).
  */
-
-type PagesFunction<E = unknown> = (context: {
-  request: Request;
-  env: E;
-  params: Record<string, string | string[]>;
-  waitUntil?: (promise: Promise<unknown>) => void;
-}) => Response | Promise<Response>;
 
 interface Env {
   API_KEY: string;
   BACKEND_URL: string;
 }
 
-// Cache for 1 hour (matches backend scrape interval)
-const CACHE_TTL_SECONDS = 3600;
+// Cache for 5 minutes at edge (backend updates hourly, this protects from traffic spikes)
+const CACHE_TTL_SECONDS = 300;
 
-// Cloudflare-specific types
+// Cloudflare-specific types (not in standard lib)
 declare const caches: { default: Cache };
 
-export const onRequest: PagesFunction<Env> = async (context) => {
+interface PagesContext {
+  request: Request;
+  env: Env;
+  params: Record<string, string | string[]>;
+  waitUntil?: (promise: Promise<unknown>) => void;
+}
+
+export const onRequest = async (context: PagesContext): Promise<Response> => {
   const { request, env, params } = context;
 
   const pathParts = params.path as string[];
@@ -37,7 +37,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const backendUrl = env.BACKEND_URL || 'https://api.genvise.com';
   const targetUrl = `${backendUrl}/api/cryptoapp/${subPath}${queryString}`;
 
-  // Build cache key from the target URL
+  // Build cache key from upstream URL (shared across all users)
   const cacheKey = new Request(targetUrl, { method: 'GET' });
   const cache = caches.default;
 
@@ -89,7 +89,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'X-Cache': 'MISS',
-        'Cache-Control': `public, max-age=${CACHE_TTL_SECONDS}, stale-while-revalidate=1800`,
+        'Cache-Control': `public, max-age=${CACHE_TTL_SECONDS}, stale-while-revalidate=600`,
       },
     });
   } catch (error) {
@@ -104,7 +104,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 };
 
-export const onRequestOptions: PagesFunction = async () => {
+export const onRequestOptions = async (): Promise<Response> => {
   return new Response(null, {
     headers: {
       'Access-Control-Allow-Origin': '*',

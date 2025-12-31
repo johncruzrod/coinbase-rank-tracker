@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Chart } from 'react-chartjs-2';
-import { TrendingUp, TrendingDown, Clock, BarChart3, Activity, LucideIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, BarChart3, Activity, RefreshCw, LucideIcon } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,13 +17,7 @@ import {
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import { format } from 'date-fns';
-import _ from 'lodash';
-import {
-  filterDataByTimeRange,
-  getTimeUnit,
-  getTooltipFormat,
-  RankingDataPoint,
-} from '../utils/chartUtils';
+import { filterDataByTimeRange, getTimeUnit, getTooltipFormat, RankingDataPoint } from '../utils/chartUtils';
 
 ChartJS.register(
   CategoryScale,
@@ -48,17 +42,22 @@ interface AppColor {
 }
 
 interface AppStats {
-  average: string;
-  volatility: string;
+  average: number;
+  volatility: number;
   best: number;
   worst: number;
+  change_24h: number | null;
 }
 
-interface LatestRankings {
-  timestamp?: string;
-  Coinbase?: number | null;
-  'Crypto.com'?: number | null;
-  Binance?: number | null;
+interface SummaryResponse {
+  latest: {
+    timestamp: string | null;
+    Coinbase?: number | null;
+    'Crypto.com'?: number | null;
+    Binance?: number | null;
+  };
+  stats: Record<string, AppStats>;
+  chartData: RankingDataPoint[];
 }
 
 // App brand colors
@@ -74,53 +73,38 @@ const APPS: AppName[] = ['Coinbase', 'Crypto.com', 'Binance'];
 interface RankCardProps {
   name: AppName;
   rank: number | null | undefined;
-  change: number | null;
+  change: number | null | undefined;
   color: string;
 }
 
 const RankCard: React.FC<RankCardProps> = ({ name, rank, change, color }) => {
-  const isPositive = change !== null && change > 0;
+  const isPositive = change !== null && change !== undefined && change > 0;
   const hasChange = change !== null && change !== undefined;
 
   return (
     <div className="glass-card group">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: color }}
-          />
+          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
           <span className="text-sm font-medium text-gray-500">{name}</span>
         </div>
         {hasChange && (
           <div
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-              isPositive
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-rose-50 text-rose-600'
+              isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
             }`}
           >
-            {isPositive ? (
-              <TrendingUp className="w-3 h-3" />
-            ) : (
-              <TrendingDown className="w-3 h-3" />
-            )}
+            {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             <span>{Math.abs(change)}</span>
           </div>
         )}
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-4xl font-semibold tracking-tight text-gray-900">
-          {rank ?? '—'}
-        </span>
+        <span className="text-4xl font-semibold tracking-tight text-gray-900">{rank ?? '—'}</span>
         {rank && <span className="text-lg text-gray-400 font-medium">th</span>}
       </div>
       <p className="mt-2 text-xs text-gray-400">
-        {hasChange
-          ? isPositive
-            ? 'Moved up in 24h'
-            : 'Moved down in 24h'
-          : 'No change data'}
+        {hasChange ? (isPositive ? 'Moved up in 24h' : 'Moved down in 24h') : 'No change data'}
       </p>
     </div>
   );
@@ -139,10 +123,7 @@ const StatsCard: React.FC<StatsCardProps> = ({ name, stats, color }) => {
   return (
     <div className="glass-card">
       <div className="flex items-center gap-2 mb-4">
-        <div
-          className="w-2.5 h-2.5 rounded-full"
-          style={{ backgroundColor: color }}
-        />
+        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
         <span className="text-sm font-medium text-gray-900">{name}</span>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -170,106 +151,42 @@ const StatsCard: React.FC<StatsCardProps> = ({ name, stats, color }) => {
 // Main Component
 const CryptoRankingDashboard: React.FC = () => {
   const [currentCategory, setCurrentCategory] = useState<Category>('finance');
-  const [latestRankings, setLatestRankings] = useState<LatestRankings>({});
-  const [historicalData, setHistoricalData] = useState<RankingDataPoint[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [data, setData] = useState<SummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
-  const historicalDataCache = useRef<Record<Category, RankingDataPoint[]>>({} as Record<Category, RankingDataPoint[]>);
-  const [stats, setStats] = useState<Record<AppName, AppStats>>({} as Record<AppName, AppStats>);
 
-  const calculateStandardDeviation = useCallback((arr: number[]): number => {
-    const mean = _.mean(arr);
-    const squareDiffs = arr.map((value) => Math.pow(value - mean, 2));
-    return Math.sqrt(_.mean(squareDiffs));
-  }, []);
-
-  const calculateStats = useCallback(
-    (data: RankingDataPoint[]): Record<AppName, AppStats> => {
-      const result: Partial<Record<AppName, AppStats>> = {};
-
-      APPS.forEach((app) => {
-        const rankings = data
-          .map((d) => d[app])
-          .filter((r): r is number => r !== null && r !== undefined && r <= 100);
-        if (rankings.length > 0) {
-          result[app] = {
-            average: _.mean(rankings).toFixed(1),
-            volatility: calculateStandardDeviation(rankings).toFixed(2),
-            best: _.min(rankings) ?? 0,
-            worst: _.max(rankings) ?? 0,
-          };
-        }
-      });
-
-      return result as Record<AppName, AppStats>;
-    },
-    [calculateStandardDeviation]
-  );
-
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = async (showRefreshSpinner = false) => {
+    if (showRefreshSpinner) {
+      setIsRefreshing(true);
+    } else {
       setIsLoading(true);
-      try {
-        const [rankingsRes, historicalRes] = await Promise.all([
-          fetch(`/api/apps/latest?category=${currentCategory}`),
-          fetch(`/api/apps/historical?category=${currentCategory}`),
-        ]);
+    }
 
-        const [rankingsData, historicalDataResponse] = await Promise.all([
-          rankingsRes.json() as Promise<LatestRankings>,
-          historicalRes.json() as Promise<RankingDataPoint[]>,
-        ]);
-
-        setLatestRankings(rankingsData);
-        setLastUpdated(
-          rankingsData.timestamp ? new Date(rankingsData.timestamp) : null
-        );
-
-        if (Array.isArray(historicalDataResponse) && historicalDataResponse.length > 0) {
-          historicalDataCache.current[currentCategory] = historicalDataResponse;
-          setHistoricalData(historicalDataResponse);
-          const calculatedStats = calculateStats(historicalDataResponse);
-          setStats(calculatedStats);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-    const rankingInterval = setInterval(fetchData, 60000);
-    return () => clearInterval(rankingInterval);
-  }, [currentCategory, calculateStats]);
-
-  const calculate24HourChange = (
-    data: RankingDataPoint[],
-    app: AppName,
-    latestRank: number | null | undefined
-  ): number | null => {
-    if (!data?.length || !latestRank) return null;
-
-    const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-    const dayOldData = data
-      .filter((d) => new Date(d.timestamp) <= twentyFourHoursAgo)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
-    if (!dayOldData) return null;
-
-    const oldRank = dayOldData[app];
-    if (!oldRank || oldRank > 100) return null;
-
-    return oldRank - latestRank;
+    try {
+      const response = await fetch(`/api/apps/summary?category=${currentCategory}`);
+      const summaryData: SummaryResponse = await response.json();
+      setData(summaryData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
-  const getYAxisMinMax = (data: RankingDataPoint[]): { min: number; max: number } => {
-    if (!data?.length) return { min: 1, max: 100 };
+  useEffect(() => {
+    fetchData();
+  }, [currentCategory]);
 
-    const validRankings = data.flatMap((d) =>
+  const handleRefresh = () => {
+    fetchData(true);
+  };
+
+  const getYAxisMinMax = (chartData: RankingDataPoint[]): { min: number; max: number } => {
+    if (!chartData?.length) return { min: 1, max: 100 };
+
+    const validRankings = chartData.flatMap((d) =>
       APPS.map((app) => d[app]).filter((rank): rank is number => rank !== null && rank <= 100)
     );
 
@@ -285,15 +202,14 @@ const CryptoRankingDashboard: React.FC = () => {
   };
 
   const getChartOptions = (): ChartOptions<'line'> => {
-    const { min, max } = getYAxisMinMax(filterDataByTimeRange(historicalData, timeRange));
+    const filteredData = data?.chartData ? filterDataByTimeRange(data.chartData, timeRange) : [];
+    const { min, max } = getYAxisMinMax(filteredData);
 
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          display: false,
-        },
+        legend: { display: false },
         tooltip: {
           mode: 'index',
           intersect: false,
@@ -306,13 +222,8 @@ const CryptoRankingDashboard: React.FC = () => {
           padding: 16,
           boxPadding: 6,
           usePointStyle: true,
-          titleFont: {
-            size: 13,
-            weight: 'bold',
-          },
-          bodyFont: {
-            size: 12,
-          },
+          titleFont: { size: 13, weight: 'bold' },
+          bodyFont: { size: 12 },
         },
       },
       scales: {
@@ -322,67 +233,35 @@ const CryptoRankingDashboard: React.FC = () => {
           max,
           ticks: {
             stepSize: Math.ceil((max - min) / 8),
-            font: {
-              size: 11,
-              weight: 500,
-            },
+            font: { size: 11, weight: 500 },
             color: '#9ca3af',
             padding: 8,
             callback: (value) => (Math.floor(value as number) === value ? value : ''),
           },
-          grid: {
-            color: 'rgba(0, 0, 0, 0.03)',
-          },
-          border: {
-            display: false,
-          },
+          grid: { color: 'rgba(0, 0, 0, 0.03)' },
+          border: { display: false },
         },
         x: {
           type: 'time',
           time: {
             unit: getTimeUnit(timeRange),
             tooltipFormat: getTooltipFormat(timeRange),
-            displayFormats: {
-              hour: 'ha',
-              day: 'MMM d',
-              month: 'MMM yyyy',
-            },
+            displayFormats: { hour: 'ha', day: 'MMM d', month: 'MMM yyyy' },
           },
-          grid: {
-            display: false,
-          },
-          border: {
-            display: false,
-          },
-          ticks: {
-            font: {
-              size: 11,
-              weight: 500,
-            },
-            color: '#9ca3af',
-            maxRotation: 0,
-            padding: 8,
-          },
+          grid: { display: false },
+          border: { display: false },
+          ticks: { font: { size: 11, weight: 500 }, color: '#9ca3af', maxRotation: 0, padding: 8 },
         },
       },
-      interaction: {
-        mode: 'nearest',
-        axis: 'x',
-        intersect: false,
-      },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
       elements: {
-        point: {
-          radius: 0,
-          hoverRadius: 5,
-          hoverBorderWidth: 2,
-          hoverBackgroundColor: '#fff',
-        },
+        point: { radius: 0, hoverRadius: 5, hoverBorderWidth: 2, hoverBackgroundColor: '#fff' },
       },
     };
   };
 
   const getChartData = (): ChartData<'line'> => {
-    const filteredData = filterDataByTimeRange(historicalData, timeRange);
+    const filteredData = data?.chartData ? filterDataByTimeRange(data.chartData, timeRange) : [];
 
     return {
       labels: filteredData.map((d) => new Date(d.timestamp)),
@@ -431,9 +310,9 @@ const CryptoRankingDashboard: React.FC = () => {
   };
 
   const formatLastUpdated = (): string => {
-    if (!lastUpdated) return '—';
+    if (!data?.latest?.timestamp) return '—';
     try {
-      return format(lastUpdated, 'MMM d, h:mm a');
+      return format(new Date(data.latest.timestamp), 'MMM d, h:mm a');
     } catch {
       return '—';
     }
@@ -442,8 +321,6 @@ const CryptoRankingDashboard: React.FC = () => {
   const timeRanges: { key: TimeRange; label: string }[] = [
     { key: '24h', label: '24H' },
     { key: '7d', label: '7D' },
-    { key: '30d', label: '30D' },
-    { key: 'all', label: 'All' },
   ];
 
   const categories: { key: Category; label: string; icon: LucideIcon }[] = [
@@ -458,16 +335,22 @@ const CryptoRankingDashboard: React.FC = () => {
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                App Store Rankings
-              </h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Crypto exchange performance tracker
-              </p>
+              <h1 className="text-xl font-semibold text-gray-900">App Store Rankings</h1>
+              <p className="text-sm text-gray-500 mt-0.5">Crypto exchange performance tracker</p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Clock className="w-4 h-4" />
-              <span>{formatLastUpdated()}</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Clock className="w-4 h-4" />
+                <span>{formatLastUpdated()}</span>
+              </div>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+                title="Refresh data"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
         </div>
@@ -498,8 +381,8 @@ const CryptoRankingDashboard: React.FC = () => {
             <RankCard
               key={app}
               name={app}
-              rank={latestRankings[app]}
-              change={calculate24HourChange(historicalData, app, latestRankings[app])}
+              rank={data?.latest?.[app]}
+              change={data?.stats?.[app]?.change_24h}
               color={APP_COLORS[app].primary}
             />
           ))}
@@ -509,12 +392,8 @@ const CryptoRankingDashboard: React.FC = () => {
         <div className="glass-card mb-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Ranking History
-              </h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Track position changes over time
-              </p>
+              <h2 className="text-lg font-semibold text-gray-900">Ranking History</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Track position changes over time</p>
             </div>
             <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
               {timeRanges.map(({ key, label }) => (
@@ -522,9 +401,7 @@ const CryptoRankingDashboard: React.FC = () => {
                   key={key}
                   onClick={() => setTimeRange(key)}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                    timeRange === key
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
+                    timeRange === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {label}
@@ -537,10 +414,7 @@ const CryptoRankingDashboard: React.FC = () => {
           <div className="flex gap-6 mb-6">
             {APPS.map((app) => (
               <div key={app} className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: APP_COLORS[app].primary }}
-                />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: APP_COLORS[app].primary }} />
                 <span className="text-sm text-gray-600">{app}</span>
               </div>
             ))}
@@ -552,12 +426,10 @@ const CryptoRankingDashboard: React.FC = () => {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
               </div>
-            ) : historicalData.length > 0 ? (
+            ) : data?.chartData && data.chartData.length > 0 ? (
               <Chart type="line" data={getChartData()} options={getChartOptions()} />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                No data available
-              </div>
+              <div className="absolute inset-0 flex items-center justify-center text-gray-400">No data available</div>
             )}
           </div>
         </div>
@@ -565,21 +437,14 @@ const CryptoRankingDashboard: React.FC = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {APPS.map((app) => (
-            <StatsCard
-              key={app}
-              name={app}
-              stats={stats[app]}
-              color={APP_COLORS[app].primary}
-            />
+            <StatsCard key={app} name={app} stats={data?.stats?.[app]} color={APP_COLORS[app].primary} />
           ))}
         </div>
       </main>
 
       {/* Footer */}
       <footer className="max-w-6xl mx-auto px-6 py-8 mt-8 border-t border-gray-100">
-        <p className="text-center text-sm text-gray-400">
-          Data sourced from App Store Top Charts. Updated hourly.
-        </p>
+        <p className="text-center text-sm text-gray-400">Data sourced from App Store Top Charts. Updated hourly.</p>
       </footer>
     </div>
   );
