@@ -11,8 +11,8 @@ interface Env {
   BACKEND_URL: string;
 }
 
-// Cache for 5 minutes at edge (backend updates hourly, this protects from traffic spikes)
-const CACHE_TTL_SECONDS = 300;
+// Cache for 30 minutes at edge (backend updates hourly)
+const CACHE_TTL_SECONDS = 1800;
 
 // Cloudflare-specific types (not in standard lib)
 declare const caches: { default: Cache };
