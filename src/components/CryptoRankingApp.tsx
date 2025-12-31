@@ -19,6 +19,7 @@ import { filterDataByTimeRange, RankingDataPoint } from '../utils/chartUtils';
 type AppName = 'Coinbase' | 'Crypto.com' | 'Binance';
 type TimeRange = '24h' | '7d' | '30d' | 'all';
 type Category = 'finance' | 'global';
+type Platform = 'ios' | 'android';
 
 interface AppStats {
   average: number;
@@ -59,6 +60,11 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'finance', label: 'Finance' },
   { key: 'global', label: 'All Apps' },
+];
+
+const PLATFORMS: { key: Platform; store: string; icon: string }[] = [
+  { key: 'ios', store: 'App Store', icon: '/astore.png' },
+  { key: 'android', store: 'Google Play', icon: '/gplay.png' },
 ];
 
 // ============================================================================
@@ -123,7 +129,10 @@ const RankDisplay = ({ app, rank, change, stats }: RankDisplayProps) => {
             {rank}
           </>
         ) : (
-          <span className="rank-null">—</span>
+          <span className="rank-unranked">
+            <span>Not in</span>
+            <span>Top 100</span>
+          </span>
         )}
       </div>
 
@@ -164,16 +173,23 @@ const RankDisplay = ({ app, rank, change, stats }: RankDisplayProps) => {
 // ============================================================================
 
 const CryptoRankingApp = () => {
+  const [platform, setPlatform] = useState<Platform>('ios');
   const [category, setCategory] = useState<Category>('finance');
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const currentPlatform = PLATFORMS.find((p) => p.key === platform)!;
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/apps/summary?category=${category}`);
+        const endpoint =
+          platform === 'ios'
+            ? `/api/apps/summary?category=${category}`
+            : `/api/apps/android/summary?category=${category}`;
+        const res = await fetch(endpoint);
         const json: SummaryResponse = await res.json();
         setData(json);
       } catch (err) {
@@ -183,7 +199,7 @@ const CryptoRankingApp = () => {
       }
     };
     fetchData();
-  }, [category]);
+  }, [category, platform]);
 
   // Process chart data
   const chartData = useMemo(() => {
@@ -228,19 +244,34 @@ const CryptoRankingApp = () => {
       <header className="app-header">
         <div className="header-left">
           <h1 className="app-title">Crypto App Rankings</h1>
-          <p className="app-subtitle">US App Store • Top Free Apps</p>
+          <p className="app-subtitle">US {currentPlatform.store} • Top Free Apps</p>
         </div>
 
-        <div className="category-toggle">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.key}
-              className={`category-btn ${category === cat.key ? 'active' : ''}`}
-              onClick={() => setCategory(cat.key)}
-            >
-              {cat.label}
-            </button>
-          ))}
+        <div className="header-controls">
+          <div className="platform-toggle">
+            {PLATFORMS.map((p) => (
+              <button
+                key={p.key}
+                className={`platform-btn ${platform === p.key ? 'active' : ''}`}
+                onClick={() => setPlatform(p.key)}
+                title={p.store}
+              >
+                <img src={p.icon} alt={p.store} className="platform-icon" />
+              </button>
+            ))}
+          </div>
+
+          <div className="category-toggle">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                className={`category-btn ${category === cat.key ? 'active' : ''}`}
+                onClick={() => setCategory(cat.key)}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="timestamp">
