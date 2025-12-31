@@ -10,11 +10,6 @@
     --coinbase: #0052FF;
     --crypto-com: #7C3AED;
     --binance: #F59E0B;
-
-    --glass-bg: rgba(255, 255, 255, 0.65);
-    --glass-border: rgba(255, 255, 255, 0.5);
-    --glass-shadow: rgba(0, 0, 0, 0.08);
-    --glass-highlight: rgba(255, 255, 255, 0.9);
   }
 
   * {
@@ -37,7 +32,7 @@
 
   body {
     font-family: var(--font-sans);
-    background: #f0f4f8;
+    background: #e8eef5;
     color: #1a1a2e;
     line-height: 1.5;
     letter-spacing: -0.01em;
@@ -61,7 +56,6 @@
     overflow: hidden;
   }
 
-  /* Full background image - no overlay */
   .app-background {
     position: absolute;
     inset: 0;
@@ -72,31 +66,19 @@
   }
 
   /* =========================================================================
-     GLASS EFFECT MIXIN (applied via classes)
-     ========================================================================= */
-  .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid var(--glass-border);
-    box-shadow:
-      0 8px 32px var(--glass-shadow),
-      inset 0 1px 0 var(--glass-highlight),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-  }
+     TRUE GLASS EFFECT
 
-  .glass-subtle {
-    background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    box-shadow:
-      0 4px 16px var(--glass-shadow),
-      inset 0 1px 0 var(--glass-highlight);
-  }
+     Components:
+     1. Very low opacity background (glass is mostly transparent)
+     2. Strong backdrop blur for depth
+     3. Reflection gradient (::after) - diagonal shine from light source
+     4. Edge highlights - top/left brighter (light hits there)
+     5. Edge shadows - bottom/right darker (shadow side)
+     6. Subtle inner glow for thickness illusion
+     ========================================================================= */
 
   /* =========================================================================
-     HEADER
+     HEADER - Glass bar
      ========================================================================= */
   .app-header {
     display: flex;
@@ -105,19 +87,41 @@
     padding: 1rem 2rem;
     position: relative;
     z-index: 10;
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+
+    /* Glass base - more transparent */
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+
+    /* Edge lighting */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     box-shadow:
-      0 4px 20px rgba(0, 0, 0, 0.04),
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
       inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+  }
+
+  /* Reflection shine */
+  .app-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.3) 0%,
+      rgba(255, 255, 255, 0.1) 25%,
+      transparent 50%
+    );
+    pointer-events: none;
   }
 
   .header-left {
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
+    position: relative;
+    z-index: 1;
   }
 
   .app-title {
@@ -126,34 +130,39 @@
     color: #0f172a;
     margin: 0;
     letter-spacing: -0.02em;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
   }
 
   .app-subtitle {
     font-size: 0.75rem;
-    color: #64748b;
+    color: #475569;
     margin: 0;
     font-weight: 500;
   }
 
-  /* Category toggle */
+  /* Category toggle - small glass pill */
   .category-toggle {
     display: flex;
     gap: 0.25rem;
     padding: 0.25rem;
-    background: rgba(255, 255, 255, 0.6);
+    position: relative;
+    z-index: 1;
+
+    background: rgba(255, 255, 255, 0.25);
     backdrop-filter: blur(12px);
-    border-radius: 0.625rem;
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.35);
     box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      0 2px 8px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.02);
   }
 
   .category-btn {
     padding: 0.5rem 1rem;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #64748b;
+    color: #475569;
     background: transparent;
     border: none;
     border-radius: 0.5rem;
@@ -162,25 +171,27 @@
   }
 
   .category-btn:hover {
-    color: #334155;
+    color: #1e293b;
   }
 
   .category-btn.active {
-    background: #fff;
+    background: rgba(255, 255, 255, 0.7);
     color: #0f172a;
     box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.08),
-      0 1px 2px rgba(0, 0, 0, 0.04);
+      0 2px 8px rgba(0, 0, 0, 0.1),
+      0 1px 2px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
   }
 
-  /* Timestamp */
   .timestamp {
     font-size: 0.75rem;
-    color: #64748b;
+    color: #475569;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     font-weight: 500;
+    position: relative;
+    z-index: 1;
   }
 
   .timestamp-dot {
@@ -188,13 +199,13 @@
     height: 6px;
     background: #22c55e;
     border-radius: 50%;
-    box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
     animation: pulse 2s infinite;
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
-    50% { opacity: 0.6; box-shadow: 0 0 4px rgba(34, 197, 94, 0.3); }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
 
   /* =========================================================================
@@ -211,7 +222,7 @@
   }
 
   /* =========================================================================
-     RANKINGS STRIP
+     RANKINGS STRIP - Glass cards
      ========================================================================= */
   .rankings-strip {
     display: grid;
@@ -222,31 +233,63 @@
   .rank-display {
     position: relative;
     padding: 1.5rem 1.75rem;
-    border-radius: 1.25rem;
-    transition: all 0.3s ease;
+    border-radius: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
 
-    /* Glass effect */
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    /* Glass base - TRANSPARENT */
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+
+    /* Edge lighting - brighter top-left, darker bottom-right */
+    border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.06),
+      /* Outer shadow for depth */
+      0 8px 32px rgba(0, 0, 0, 0.08),
       0 2px 8px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+      /* Top edge - bright, light hitting glass */
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      /* Left edge - bright */
+      inset 1px 0 0 rgba(255, 255, 255, 0.4),
+      /* Bottom edge - shadow side */
+      inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+      /* Right edge - shadow side */
+      inset -1px 0 0 rgba(0, 0, 0, 0.02),
+      /* Inner glow for thickness */
+      inset 0 0 20px rgba(255, 255, 255, 0.1);
+  }
+
+  /* Reflection gradient - the key to glass look */
+  .rank-display::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.15) 25%,
+      rgba(255, 255, 255, 0.05) 50%,
+      transparent 100%
+    );
+    pointer-events: none;
   }
 
   .rank-display:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px) scale(1.01);
+    background: rgba(255, 255, 255, 0.2);
     box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.1),
+      0 16px 48px rgba(0, 0, 0, 0.12),
       0 4px 12px rgba(0, 0, 0, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      inset 0 1px 0 rgba(255, 255, 255, 0.7),
+      inset 1px 0 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+      inset -1px 0 0 rgba(0, 0, 0, 0.02),
+      inset 0 0 30px rgba(255, 255, 255, 0.15);
   }
 
-  /* Color accent bar */
+  /* Color accent - top edge glow */
   .rank-display::before {
     content: '';
     position: absolute;
@@ -254,23 +297,29 @@
     left: 0;
     right: 0;
     height: 3px;
-    border-radius: 1.25rem 1.25rem 0 0;
+    border-radius: 1.5rem 1.5rem 0 0;
+    z-index: 2;
   }
 
   .rank-display.coinbase::before {
-    background: linear-gradient(90deg, var(--coinbase), rgba(0, 82, 255, 0.3));
+    background: linear-gradient(90deg, var(--coinbase), rgba(0, 82, 255, 0.2));
+    box-shadow: 0 0 20px rgba(0, 82, 255, 0.3);
   }
 
   .rank-display.crypto-com::before {
-    background: linear-gradient(90deg, var(--crypto-com), rgba(124, 58, 237, 0.3));
+    background: linear-gradient(90deg, var(--crypto-com), rgba(124, 58, 237, 0.2));
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
   }
 
   .rank-display.binance::before {
-    background: linear-gradient(90deg, var(--binance), rgba(245, 158, 11, 0.3));
+    background: linear-gradient(90deg, var(--binance), rgba(245, 158, 11, 0.2));
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
   }
 
-  /* Rank number */
+  /* Content needs z-index to be above reflection */
   .rank-number {
+    position: relative;
+    z-index: 1;
     font-family: var(--font-mono);
     font-size: 3.5rem;
     font-weight: 700;
@@ -282,26 +331,28 @@
   .rank-number .hash {
     font-size: 2rem;
     font-weight: 500;
-    color: #94a3b8;
+    color: #64748b;
     margin-right: 0.125rem;
   }
 
   .rank-null {
-    color: #cbd5e1;
+    color: #94a3b8;
     font-size: 2.5rem;
   }
 
-  /* App name */
   .rank-app-name {
+    position: relative;
+    z-index: 1;
     font-size: 0.875rem;
     font-weight: 700;
     letter-spacing: 0.02em;
     margin-top: 0.625rem;
-    color: #475569;
+    color: #334155;
   }
 
-  /* Change indicator */
   .rank-change {
+    position: relative;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
@@ -314,21 +365,22 @@
 
   .rank-change.positive {
     color: #15803d;
-    background: rgba(34, 197, 94, 0.15);
+    background: rgba(34, 197, 94, 0.2);
   }
 
   .rank-change.negative {
     color: #dc2626;
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(239, 68, 68, 0.15);
   }
 
   .rank-change.neutral {
     color: #64748b;
-    background: rgba(100, 116, 139, 0.1);
+    background: rgba(100, 116, 139, 0.15);
   }
 
-  /* Stats */
   .rank-stats {
+    position: relative;
+    z-index: 1;
     display: flex;
     gap: 1.25rem;
     margin-top: 1rem;
@@ -347,36 +399,58 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #94a3b8;
+    color: #64748b;
   }
 
   .rank-stat-value {
     font-family: var(--font-mono);
     font-size: 0.875rem;
     font-weight: 600;
-    color: #334155;
+    color: #1e293b;
   }
 
   /* =========================================================================
-     CHART SECTION
+     CHART SECTION - Large glass panel
      ========================================================================= */
   .chart-section {
     display: flex;
     flex-direction: column;
-    border-radius: 1.25rem;
+    border-radius: 1.5rem;
     overflow: hidden;
     min-height: 0;
+    position: relative;
 
-    /* Glass effect */
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    /* Glass */
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+
+    border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.06),
+      0 8px 32px rgba(0, 0, 0, 0.08),
       0 2px 8px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      inset 1px 0 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+      inset -1px 0 0 rgba(0, 0, 0, 0.02),
+      inset 0 0 40px rgba(255, 255, 255, 0.1);
+  }
+
+  /* Large reflection for chart panel */
+  .chart-section::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      140deg,
+      rgba(255, 255, 255, 0.35) 0%,
+      rgba(255, 255, 255, 0.1) 20%,
+      rgba(255, 255, 255, 0.03) 40%,
+      transparent 60%
+    );
+    pointer-events: none;
+    z-index: 0;
   }
 
   .chart-container {
@@ -384,15 +458,17 @@
     flex: 1;
     min-height: 0;
     padding: 0.5rem 1rem 1rem;
+    z-index: 1;
   }
 
-  /* Chart header */
   .chart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.25rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    position: relative;
+    z-index: 1;
   }
 
   .chart-legend {
@@ -406,32 +482,34 @@
     gap: 0.5rem;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #475569;
+    color: #334155;
   }
 
   .legend-dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 
-  /* Time controls */
   .time-controls {
     display: flex;
     gap: 0.25rem;
     padding: 0.25rem;
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(8px);
     border-radius: 0.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
   }
 
   .time-btn {
     padding: 0.375rem 0.75rem;
     font-size: 0.6875rem;
     font-weight: 700;
-    color: #64748b;
+    color: #475569;
     background: transparent;
     border: none;
     border-radius: 0.375rem;
@@ -441,29 +519,46 @@
   }
 
   .time-btn:hover {
-    color: #334155;
+    color: #1e293b;
   }
 
   .time-btn.active {
-    background: #fff;
+    background: rgba(255, 255, 255, 0.8);
     color: #0f172a;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
   /* =========================================================================
-     CUSTOM TOOLTIP
+     TOOLTIP - Small glass card
      ========================================================================= */
   .chart-tooltip {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    border-radius: 0.875rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 1rem;
     padding: 0.875rem 1rem;
     box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.12),
-      0 4px 12px rgba(0, 0, 0, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      0 12px 40px rgba(0, 0, 0, 0.15),
+      0 4px 12px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-tooltip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      transparent 50%
+    );
+    pointer-events: none;
+    border-radius: inherit;
   }
 
   .tooltip-date {
@@ -472,7 +567,9 @@
     color: #0f172a;
     margin-bottom: 0.625rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    position: relative;
+    z-index: 1;
   }
 
   .tooltip-time {
@@ -485,6 +582,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
+    position: relative;
+    z-index: 1;
   }
 
   .tooltip-item {
@@ -503,7 +602,7 @@
   }
 
   .tooltip-label {
-    color: #64748b;
+    color: #475569;
     flex: 1;
     font-weight: 500;
   }
@@ -515,7 +614,7 @@
   }
 
   /* =========================================================================
-     LOADING & EMPTY STATES
+     LOADING & EMPTY
      ========================================================================= */
   .loading-spinner {
     width: 2rem;
@@ -536,6 +635,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1;
   }
 
   .empty-state {
@@ -544,9 +644,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #94a3b8;
+    color: #64748b;
     font-size: 0.875rem;
     font-weight: 500;
+    z-index: 1;
   }
 
   /* =========================================================================
@@ -575,6 +676,10 @@
       padding: 1rem 1.25rem;
       flex-wrap: wrap;
       gap: 0.75rem;
+    }
+
+    .app-header::after {
+      display: none;
     }
 
     .header-left {
