@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Chart } from 'react-chartjs-2';
-import { TrendingUp, TrendingDown, Clock, BarChart3, Activity, RefreshCw, LucideIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, BarChart3, Activity, LucideIcon } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -153,35 +153,24 @@ const CryptoRankingDashboard: React.FC = () => {
   const [currentCategory, setCurrentCategory] = useState<Category>('finance');
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
 
-  const fetchData = async (showRefreshSpinner = false) => {
-    if (showRefreshSpinner) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-
-    try {
-      const response = await fetch(`/api/apps/summary?category=${currentCategory}`);
-      const summaryData: SummaryResponse = await response.json();
-      setData(summaryData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/apps/summary?category=${currentCategory}`);
+        const summaryData: SummaryResponse = await response.json();
+        setData(summaryData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchData();
   }, [currentCategory]);
-
-  const handleRefresh = () => {
-    fetchData(true);
-  };
 
   const getYAxisMinMax = (chartData: RankingDataPoint[]): { min: number; max: number } => {
     if (!chartData?.length) return { min: 1, max: 100 };
@@ -321,6 +310,8 @@ const CryptoRankingDashboard: React.FC = () => {
   const timeRanges: { key: TimeRange; label: string }[] = [
     { key: '24h', label: '24H' },
     { key: '7d', label: '7D' },
+    { key: '30d', label: '30D' },
+    { key: 'all', label: 'All' },
   ];
 
   const categories: { key: Category; label: string; icon: LucideIcon }[] = [
@@ -338,19 +329,9 @@ const CryptoRankingDashboard: React.FC = () => {
               <h1 className="text-xl font-semibold text-gray-900">App Store Rankings</h1>
               <p className="text-sm text-gray-500 mt-0.5">Crypto exchange performance tracker</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Clock className="w-4 h-4" />
-                <span>{formatLastUpdated()}</span>
-              </div>
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
-                title="Refresh data"
-              >
-                <RefreshCw className={`w-4 h-4 text-gray-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Clock className="w-4 h-4" />
+              <span>{formatLastUpdated()}</span>
             </div>
           </div>
         </div>
